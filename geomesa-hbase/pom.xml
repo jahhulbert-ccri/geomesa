@@ -13,6 +13,7 @@
 
     <modules>
         <module>geomesa-hbase-datastore</module>
+        <module>geomesa-dist-hbase</module>
     </modules>
 
     <profiles>
@@ -20,6 +21,7 @@
             <id>bigtable</id>
             <modules>
                 <module>geomesa-bigtable-datastore</module>
+                <module>geomesa-dist-bigtable</module>
             </modules>
         </profile>
     </profiles>

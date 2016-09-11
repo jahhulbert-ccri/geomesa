@@ -13,6 +13,7 @@
 
     <modules>
         <module>geomesa-cassandra-datastore</module>
+        <module>geomesa-cassandra-dist</module>
     </modules>
 
     <properties>
