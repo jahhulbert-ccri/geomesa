@@ -24,13 +24,9 @@
         <module>geomesa-features</module>
         <module>geomesa-filter</module>
         <module>geomesa-gs-plugin</module>
-        <module>geomesa-jobs</module>
         <module>geomesa-kafka</module>
         <module>geomesa-convert</module>
-        <module>geomesa-tools</module>
-        <module>geomesa-compute</module>
-        <module>geomesa-dist</module>
-        <module>geomesa-raster</module>
+        <module>geomesa-tools-common</module>
         <module>geomesa-web</module>
         <module>geomesa-process</module>
         <module>geomesa-stream</module>
@@ -73,7 +69,8 @@
         <spark.version>2.0.0</spark.version>
         <hbase.version>1.1.5</hbase.version>
         <hbase.guava.version>12.0.1</hbase.guava.version>
-        <kafka.version>0.8.2.1</kafka.version>
+        <kafka.08.version>0.8.2.1</kafka.08.version>
+        <kafka.09.version>0.9.0.1</kafka.09.version>
 
         <!-- Recommended installation versions -->
         <!-- These take into account bugfixes and should be used in documentation -->
@@ -1377,33 +1374,38 @@
             </dependency>
             <dependency>
                 <groupId>org.locationtech.geomesa</groupId>
-                <artifactId>geomesa-raster</artifactId>
+                <artifactId>geomesa-accumulo-raster</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.locationtech.geomesa</groupId>
-                <artifactId>geomesa-tools</artifactId>
+                <artifactId>geomesa-tools-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.locationtech.geomesa</groupId>
-                <artifactId>geomesa-jobs</artifactId>
+                <artifactId>geomesa-tools-accumulo</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.locationtech.geomesa</groupId>
-                <artifactId>geomesa-compute</artifactId>
+                <artifactId>geomesa-tools-kafka</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.locationtech.geomesa</groupId>
-                <artifactId>geomesa-compute</artifactId>
+                <artifactId>geomesa-accumulo-jobs</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.locationtech.geomesa</groupId>
+                <artifactId>geomesa-accumulo-compute</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.locationtech.geomesa</groupId>
+                <artifactId>geomesa-accumulo-compute</artifactId>
                 <classifier>shaded</classifier>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.locationtech.geomesa</groupId>
-                <artifactId>geomesa-dist</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -1448,7 +1450,7 @@
             </dependency>
             <dependency>
                 <groupId>org.locationtech.geomesa</groupId>
-                <artifactId>geomesa-kafka-datastore</artifactId>
+                <artifactId>geomesa-kafka-08-datastore</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -1469,7 +1471,7 @@
             <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka_2.11</artifactId>
-                <version>${kafka.version}</version>
+                <version>${kafka.08.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.slf4j</groupId>

@@ -25,10 +25,6 @@
       on the user using a profile.
     -->
 
-    <profiles>
-        <profile>
-            <id>hbase</id>
-
             <dependencies>
                 <dependency>
                     <groupId>org.locationtech.geomesa</groupId>
@@ -162,7 +158,5 @@
                 </plugins>
             </build>
 
-        </profile>
-    </profiles>
 
 </project>
