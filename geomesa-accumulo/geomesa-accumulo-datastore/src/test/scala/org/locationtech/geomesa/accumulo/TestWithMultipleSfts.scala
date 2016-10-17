@@ -43,13 +43,15 @@ trait TestWithMultipleSfts extends Specification {
 
   val connector = new MockInstance("mycloud").getConnector("user", new PasswordToken("password"))
 
-  val dsParams = Map(
+  def dsParams: Map[String, Any] = Map(
     "connector" -> connector,
     "caching"   -> false,
     // note the table needs to be different to prevent testing errors
     "tableName" -> sftBaseName)
 
-  val ds = DataStoreFinder.getDataStore(dsParams.asJava).asInstanceOf[AccumuloDataStore]
+  val ds = DataStoreFinder
+    .getDataStore(dsParams.asJava)
+    .asInstanceOf[AccumuloDataStore]
 
   // after all tests, drop the tables we created to free up memory
   override def map(fragments: => Fragments) = fragments ^ Step {

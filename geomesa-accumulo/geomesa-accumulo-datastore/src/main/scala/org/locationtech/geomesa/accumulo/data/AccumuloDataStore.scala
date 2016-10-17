@@ -92,12 +92,12 @@ class AccumuloDataStore(val connector: Connector,
   val tableOps = connector.tableOperations()
 
   override val metadata: GeoMesaMetadata[String] =
-    new MultiRowAccumuloMetadata(connector, catalogTable, MetadataStringSerializer)
-  private val oldMetadata = new SingleRowAccumuloMetadata(connector, catalogTable, MetadataStringSerializer)
+    new MultiRowAccumuloMetadata(connector, catalogTable, MetadataStringSerializer, config.tableConfig)
+  private val oldMetadata = new SingleRowAccumuloMetadata(connector, catalogTable, MetadataStringSerializer, config.tableConfig)
 
   override val stats: GeoMesaStats = new GeoMesaMetadataStats(this, statsTable, config.generateStats)
   override val usageStats: GeoMesaUsageStats =
-    new GeoMesaUsageStatsImpl(connector, usageStatsTable, config.collectUsageStats)
+    new GeoMesaUsageStatsImpl(connector, usageStatsTable, config.collectUsageStats, config.tableConfig)
 
 
   // methods from org.geotools.data.DataStore
@@ -178,7 +178,7 @@ class AccumuloDataStore(val connector: Connector,
         try {
           if (oldMetadata.read(typeName, ATTRIBUTES_KEY, cache = false).isDefined) {
             metadata.asInstanceOf[MultiRowAccumuloMetadata[String]].migrate(typeName)
-            new MultiRowAccumuloMetadata[Any](connector, statsTable, null).migrate(typeName)
+            new MultiRowAccumuloMetadata[Any](connector, statsTable, null, config.tableConfig).migrate(typeName)
           }
         } finally {
           lock.release()
@@ -246,7 +246,7 @@ class AccumuloDataStore(val connector: Connector,
           val lock = acquireCatalogLock()
           try {
             if (!metadata.read(typeName, configuredKey, cache = false).exists(_ == "true")) {
-              GeoMesaMetadataStats.configureStatCombiner(connector, statsTable, sft)
+              GeoMesaMetadataStats.configureStatCombiner(connector, statsTable, sft, config.tableConfig)
               metadata.insert(typeName, configuredKey, "true")
             }
           } finally {
@@ -684,7 +684,7 @@ class AccumuloDataStore(val connector: Connector,
     metadata.insert(sft.getTypeName, metadataMap)
 
     // configure the stats combining iterator on the table for this sft
-    GeoMesaMetadataStats.configureStatCombiner(connector, statsTable, sft)
+    GeoMesaMetadataStats.configureStatCombiner(connector, statsTable, sft, config.tableConfig)
   }
 
   private def deleteSharedTables(sft: SimpleFeatureType) =
@@ -759,6 +759,9 @@ object AccumuloDataStore {
   }
 }
 
+case class TableConfig(versioning: Boolean,
+                       logicalTime: Boolean)
+
 // record scans are single-row ranges - increasing the threads too much actually causes performance to decrease
 case class AccumuloDataStoreConfig(queryTimeout: Option[Long],
                                    queryThreads: Int,
@@ -767,4 +770,5 @@ case class AccumuloDataStoreConfig(queryTimeout: Option[Long],
                                    generateStats: Boolean,
                                    collectUsageStats: Boolean,
                                    caching: Boolean,
-                                   looseBBox: Boolean)
+                                   looseBBox: Boolean,
+                                   tableConfig: TableConfig)

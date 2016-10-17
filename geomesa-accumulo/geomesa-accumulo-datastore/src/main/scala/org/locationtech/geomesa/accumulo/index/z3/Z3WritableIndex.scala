@@ -121,7 +121,7 @@ trait Z3WritableIndex extends AccumuloWritableIndex {
     val table = GeoMesaTable.formatSoloTableName(ops.catalogTable, tableSuffix, sft.getTypeName)
     ops.metadata.insert(sft.getTypeName, tableNameKey, table)
 
-    AccumuloVersion.ensureTableExists(ops.connector, table)
+    AccumuloVersion.ensureTableExists(ops.connector, table, ops.config.tableConfig)
 
     val localityGroups = Seq(BinColumnFamily, FullColumnFamily).map(cf => (cf.toString, ImmutableSet.of(cf))).toMap
     ops.tableOps.setLocalityGroups(table, localityGroups)

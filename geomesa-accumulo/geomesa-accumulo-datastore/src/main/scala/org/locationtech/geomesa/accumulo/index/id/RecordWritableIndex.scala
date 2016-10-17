@@ -38,7 +38,7 @@ trait RecordWritableIndex extends AccumuloWritableIndex {
     val table = GeoMesaTable.formatTableName(ops.catalogTable, tableSuffix, sft)
     ops.metadata.insert(sft.getTypeName, tableNameKey, table)
 
-    AccumuloVersion.ensureTableExists(ops.connector, table)
+    AccumuloVersion.ensureTableExists(ops.connector, table, ops.config.tableConfig)
 
     val prefix = sft.getTableSharingPrefix
     val prefixFn = getRowKey(prefix, _: String)

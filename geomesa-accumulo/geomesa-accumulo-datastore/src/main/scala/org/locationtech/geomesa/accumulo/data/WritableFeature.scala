@@ -68,11 +68,12 @@ trait WritableFeature {
   def idHash: Int
 }
 
-class RowValue(val cf: Text, val cq: Text, val vis: ColumnVisibility, toValue: => Value) {
+class RowValue(val cf: Text, val cq: Text, val vis: ColumnVisibility, toValue: => Value, val ts: Option[Long]) {
   lazy val value: Value = toValue
 }
 
 object WritableFeature {
+
 
   import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType.RichSimpleFeatureType
 
@@ -88,10 +89,10 @@ object WritableFeature {
     sft.getVisibilityLevel match {
       case VisibilityLevel.Feature =>
         (sf) => new WritableFeatureLevelFeature(sf, defaultVisibility, serializer, serializerWithId,
-          indexSerializer, indexSerializerWithId, binEncoder)
+          indexSerializer, indexSerializerWithId, binEncoder, sft.getDtgIndex)
       case VisibilityLevel.Attribute =>
         (sf) => new WritableAttributeLevelFeature(sf, sft, defaultVisibility, serializer, serializerWithId,
-          indexSerializer, indexSerializerWithId, binEncoder)
+          indexSerializer, indexSerializerWithId, binEncoder, sft.getDtgIndex)
     }
   }
 }
@@ -102,7 +103,8 @@ class WritableFeatureLevelFeature(val feature: SimpleFeature,
                                   serializerWithId: SimpleFeatureSerializer,
                                   indexSerializer: SimpleFeatureSerializer,
                                   indexSerializerWithId: SimpleFeatureSerializer,
-                                  binEncoder: Option[BinEncoder]) extends WritableFeature {
+                                  binEncoder: Option[BinEncoder],
+                                  timestampIdx: Option[Int]) extends WritableFeature {
 
   import AccumuloWritableIndex.{BinColumnFamily, EmptyColumnQualifier, FullColumnFamily, IndexColumnFamily}
   import org.locationtech.geomesa.utils.geotools.Conversions.RichSimpleFeature
@@ -110,20 +112,22 @@ class WritableFeatureLevelFeature(val feature: SimpleFeature,
   private lazy val visibility =
     new ColumnVisibility(feature.userData[String](FEATURE_VISIBILITY).getOrElse(defaultVisibility))
 
+  private lazy val timestamp: Option[Long] = timestampIdx.map( i => feature.get[java.util.Date](i).getTime)
+
   override lazy val fullValues: Seq[RowValue] =
-    Seq(new RowValue(FullColumnFamily, EmptyColumnQualifier, visibility, new Value(serializer.serialize(feature))))
+    Seq(new RowValue(FullColumnFamily, EmptyColumnQualifier, visibility, new Value(serializer.serialize(feature)), timestamp))
 
   override lazy val fullValuesWithId: Seq[RowValue] =
-    Seq(new RowValue(FullColumnFamily, EmptyColumnQualifier, visibility, new Value(serializerWithId.serialize(feature))))
+    Seq(new RowValue(FullColumnFamily, EmptyColumnQualifier, visibility, new Value(serializerWithId.serialize(feature)), timestamp))
 
   override lazy val indexValues: Seq[RowValue] =
-    Seq(new RowValue(IndexColumnFamily, EmptyColumnQualifier, visibility, new Value(indexSerializer.serialize(feature))))
+    Seq(new RowValue(IndexColumnFamily, EmptyColumnQualifier, visibility, new Value(indexSerializer.serialize(feature)), timestamp))
 
   override lazy val indexValuesWithId: Seq[RowValue] =
-    Seq(new RowValue(IndexColumnFamily, EmptyColumnQualifier, visibility, new Value(indexSerializerWithId.serialize(feature))))
+    Seq(new RowValue(IndexColumnFamily, EmptyColumnQualifier, visibility, new Value(indexSerializerWithId.serialize(feature)), timestamp))
 
   override lazy val binValues: Seq[RowValue] = binEncoder.toSeq.map { encoder =>
-    new RowValue(BinColumnFamily, EmptyColumnQualifier, visibility, new Value(encoder.encode(feature)))
+    new RowValue(BinColumnFamily, EmptyColumnQualifier, visibility, new Value(encoder.encode(feature)), timestamp)
   }
 
   override lazy val idHash: Int = Math.abs(MurmurHash3.stringHash(feature.getID))
@@ -136,7 +140,8 @@ class WritableAttributeLevelFeature(val feature: SimpleFeature,
                                     serializerWithId: SimpleFeatureSerializer,
                                     indexSerializer: SimpleFeatureSerializer,
                                     indexSerializerWithId: SimpleFeatureSerializer,
-                                    binEncoder: Option[BinEncoder]) extends WritableFeature {
+                                    binEncoder: Option[BinEncoder],
+                                    timestampIdx: Option[Int]) extends WritableFeature {
 
   private lazy val visibilities: Array[String] = {
     import org.locationtech.geomesa.utils.geotools.Conversions.RichSimpleFeature
@@ -148,6 +153,13 @@ class WritableAttributeLevelFeature(val feature: SimpleFeature,
     visibilities
   }
 
+
+  private lazy val timestamp: Option[Long] = {
+    import org.locationtech.geomesa.utils.geotools.Conversions.RichSimpleFeature
+    timestampIdx.map( i => feature.get[java.util.Date](i).getTime)
+  }
+
+
   private lazy val indexGroups: Seq[(ColumnVisibility, Array[Byte])] =
     visibilities.zipWithIndex.groupBy(_._1).map { case (vis, indices) =>
       (new ColumnVisibility(vis), indices.map(_._2.toByte).sorted)
@@ -157,28 +169,28 @@ class WritableAttributeLevelFeature(val feature: SimpleFeature,
     val sf = new ScalaSimpleFeature("", sft)
     indices.foreach(i => sf.setAttribute(i, feature.getAttribute(i)))
     val cf = AccumuloWritableIndex.AttributeColumnFamily
-    new RowValue(cf, new Text(indices), vis, new Value(serializer.serialize(sf)))
+    new RowValue(cf, new Text(indices), vis, new Value(serializer.serialize(sf)), timestamp)
   }
 
   override lazy val fullValuesWithId: Seq[RowValue] = indexGroups.map { case (vis, indices) =>
     val sf = new ScalaSimpleFeature("", sft)
     indices.foreach(i => sf.setAttribute(i, feature.getAttribute(i)))
     val cf = AccumuloWritableIndex.AttributeColumnFamily
-    new RowValue(cf, new Text(indices), vis, new Value(serializerWithId.serialize(sf)))
+    new RowValue(cf, new Text(indices), vis, new Value(serializerWithId.serialize(sf)), timestamp)
   }
 
   override lazy val indexValues: Seq[RowValue] = indexGroups.map { case (vis, indices) =>
     val sf = new ScalaSimpleFeature("", sft)
     indices.foreach(i => sf.setAttribute(i, feature.getAttribute(i)))
     val cf = AccumuloWritableIndex.AttributeColumnFamily
-    new RowValue(cf, new Text(indices), vis, new Value(indexSerializer.serialize(sf)))
+    new RowValue(cf, new Text(indices), vis, new Value(indexSerializer.serialize(sf)), timestamp)
   }
 
   override lazy val indexValuesWithId: Seq[RowValue] = indexGroups.map { case (vis, indices) =>
     val sf = new ScalaSimpleFeature("", sft)
     indices.foreach(i => sf.setAttribute(i, feature.getAttribute(i)))
     val cf = AccumuloWritableIndex.AttributeColumnFamily
-    new RowValue(cf, new Text(indices), vis, new Value(indexSerializerWithId.serialize(sf)))
+    new RowValue(cf, new Text(indices), vis, new Value(indexSerializerWithId.serialize(sf)), timestamp)
   }
 
   override lazy val binValues: Seq[RowValue] = {
@@ -196,7 +208,7 @@ class WritableAttributeLevelFeature(val feature: SimpleFeature,
       val geomVis = visibilities(sft.getGeomIndex)
       val trackVis = visibilities(trackIndex)
       val vis = (Seq(geomVis, trackVis) ++ dateVis).flatMap(_.split("&")).distinct.mkString("&")
-      new RowValue(BinColumnFamily, EmptyColumnQualifier, new ColumnVisibility(vis), new Value(encoder.encode(feature)))
+      new RowValue(BinColumnFamily, EmptyColumnQualifier, new ColumnVisibility(vis), new Value(encoder.encode(feature)), timestamp)
     }
     rowOpt.toSeq
   }

@@ -17,13 +17,16 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.accumulo.core.client.{BatchWriter, Connector}
 import org.apache.accumulo.core.data.Mutation
 import org.locationtech.geomesa.accumulo.AccumuloVersion
+import org.locationtech.geomesa.accumulo.data.TableConfig
 import org.locationtech.geomesa.accumulo.util.GeoMesaBatchWriterConfig
 import org.locationtech.geomesa.utils.monitoring.UsageStat
 
 /**
  * Manages writing of usage stats in a background thread.
  */
-class UsageStatWriter(connector: Connector, table: String) extends Runnable with Closeable with LazyLogging {
+class UsageStatWriter(connector: Connector,
+                      table: String,
+                      tableConfig: TableConfig) extends Runnable with Closeable with LazyLogging {
 
   // initial schedule
   UsageStatWriter.executor.schedule(this, UsageStatWriter.writeDelayMillis, TimeUnit.MILLISECONDS)
@@ -69,7 +72,7 @@ class UsageStatWriter(connector: Connector, table: String) extends Runnable with
 
   private def getWriter: BatchWriter = synchronized {
     if (maybeWriter == null) {
-      AccumuloVersion.ensureTableExists(connector, table)
+      AccumuloVersion.ensureTableExists(connector, table, tableConfig)
       maybeWriter = connector.createBatchWriter(table, batchWriterConfig)
     }
     maybeWriter

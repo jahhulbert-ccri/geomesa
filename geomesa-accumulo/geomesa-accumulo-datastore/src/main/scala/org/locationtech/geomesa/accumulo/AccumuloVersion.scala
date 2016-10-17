@@ -9,10 +9,11 @@
 package org.locationtech.geomesa.accumulo
 
 import org.apache.accumulo.core.Constants
-import org.apache.accumulo.core.client.admin.TimeType
+import org.apache.accumulo.core.client.admin.{NewTableConfiguration, TimeType}
 import org.apache.accumulo.core.client.{Connector, TableExistsException}
 import org.apache.accumulo.core.security.Authorizations
 import org.apache.hadoop.io.Text
+import org.locationtech.geomesa.accumulo.data.TableConfig
 
 import scala.reflect.ClassTag
 
@@ -66,12 +67,20 @@ object AccumuloVersion extends Enumeration {
     }
   }
 
-  def ensureTableExists(connector: Connector, table: String, versioning: Boolean = true): Unit = {
+  def ensureTableExists(connector: Connector,
+                        table: String,
+                        tableConfig: TableConfig): Unit = {
     val tableOps = connector.tableOperations()
     if (!tableOps.exists(table)) {
       try {
         ensureNamespaceExists(connector, table)
-        tableOps.create(table, versioning, TimeType.LOGICAL)
+        val config = if (tableConfig.versioning) {
+          new NewTableConfiguration()
+        } else {
+          new NewTableConfiguration().withoutDefaultIterators()
+        }
+        config.setTimeType(if (tableConfig.logicalTime) TimeType.LOGICAL else TimeType.MILLIS)
+        tableOps.create(table, config)
       } catch {
         // this can happen with multiple threads but shouldn't cause any issues
         case e: TableExistsException =>

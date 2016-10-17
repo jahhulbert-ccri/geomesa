@@ -102,7 +102,7 @@ trait GeoHashWritableIndex extends AccumuloWritableIndex with LazyLogging {
     val table = GeoMesaTable.formatTableName(ops.catalogTable, tableSuffix, sft)
     ops.metadata.insert(sft.getTypeName, tableNameKey, table)
 
-    AccumuloVersion.ensureTableExists(ops.connector, table)
+    AccumuloVersion.ensureTableExists(ops.connector, table, ops.config.tableConfig)
 
     val maxShard = IndexSchema.maxShard(sft.getStIndexSchema)
     val splits = (1 until maxShard).map(i => new Text(s"%0${maxShard.toString.length}d".format(i)))

@@ -9,7 +9,7 @@
 package org.locationtech.geomesa.blob.accumulo
 
 import com.typesafe.scalalogging.LazyLogging
-import org.locationtech.geomesa.accumulo.data.AccumuloDataStore
+import org.locationtech.geomesa.accumulo.data.{TableConfig, AccumuloDataStore}
 import org.locationtech.geomesa.accumulo.util.GeoMesaBatchWriterConfig
 import org.locationtech.geomesa.blob.api.GeoMesaGenericBlobStore
 
@@ -27,7 +27,7 @@ object GeoMesaAccumuloBlobStore {
       blobTableName,
       ds.authProvider,
       ds.auditProvider,
-      bwConf)
+      bwConf, TableConfig(true, true))
 
     new GeoMesaAccumuloBlobStore(ds, accBlobStore)
   }

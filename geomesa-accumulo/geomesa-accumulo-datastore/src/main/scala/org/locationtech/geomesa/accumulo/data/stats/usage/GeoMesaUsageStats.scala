@@ -13,6 +13,7 @@ import java.io.Closeable
 import org.apache.accumulo.core.client.Connector
 import org.apache.accumulo.core.security.Authorizations
 import org.joda.time.Interval
+import org.locationtech.geomesa.accumulo.data.TableConfig
 import org.locationtech.geomesa.utils.monitoring.UsageStat
 
 trait GeoMesaUsageStats extends Closeable {
@@ -46,10 +47,13 @@ trait HasGeoMesaUsageStats {
   def usageStats: GeoMesaUsageStats
 }
 
-class GeoMesaUsageStatsImpl(connector: Connector, usageStatsTable: String, collectUsageStats: Boolean)
+class GeoMesaUsageStatsImpl(connector: Connector,
+                            usageStatsTable: String,
+                            collectUsageStats: Boolean,
+                            tableConfig: TableConfig)
     extends GeoMesaUsageStats {
 
-  private val usageWriter = if (collectUsageStats) new UsageStatWriter(connector, usageStatsTable) else null
+  private val usageWriter = if (collectUsageStats) new UsageStatWriter(connector, usageStatsTable, tableConfig) else null
   private val usageReader = new UsageStatReader(connector, usageStatsTable)
 
   override def writeUsageStat[T <: UsageStat](stat: T)(implicit transform: UsageStatTransform[T]): Unit =

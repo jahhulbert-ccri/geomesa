@@ -14,6 +14,7 @@ import org.apache.accumulo.core.security.Authorizations
 import org.joda.time.Interval
 import org.joda.time.format.DateTimeFormat
 import org.junit.runner.RunWith
+import org.locationtech.geomesa.accumulo.data.TableConfig
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
@@ -27,6 +28,7 @@ class UsageStatWriterTest extends Specification {
   val statsTable = s"${catalogTable}_${featureName}_queries"
 
   val auths = new Authorizations()
+  val tableConfig = new TableConfig(true, true)
 
   val connector = new MockInstance().getConnector("user", new PasswordToken("password"))
 
@@ -35,7 +37,7 @@ class UsageStatWriterTest extends Specification {
   "StatWriter" should {
 
     "write query stats asynchronously" in {
-      val writer = new UsageStatWriter(connector, statsTable)
+      val writer = new UsageStatWriter(connector, statsTable, tableConfig)
 
       writer.queueStat(QueryStat(featureName,
                                  df.parseMillis("2014.07.26 13:20:01"),

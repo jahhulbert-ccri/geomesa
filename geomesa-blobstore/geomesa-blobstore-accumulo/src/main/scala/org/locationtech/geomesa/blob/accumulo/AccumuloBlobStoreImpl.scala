@@ -24,9 +24,10 @@ class AccumuloBlobStoreImpl(val connector: Connector,
                             val blobTableName: String,
                             val authProvider: AuthorizationsProvider,
                             val auditProvider: AuditProvider,
-                            val bwConf: BatchWriterConfig ) extends BlobStore with LazyLogging {
+                            val bwConf: BatchWriterConfig,
+                            tableConfig: TableConfig) extends BlobStore with LazyLogging {
 
-  AccumuloVersion.ensureTableExists(connector, blobTableName)
+  AccumuloVersion.ensureTableExists(connector, blobTableName, tableConfig)
 
   protected val bw = connector.createBatchWriter(blobTableName, bwConf)
   protected val tableOps = connector.tableOperations()

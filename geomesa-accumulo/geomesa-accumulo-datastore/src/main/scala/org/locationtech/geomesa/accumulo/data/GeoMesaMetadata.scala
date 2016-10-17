@@ -129,7 +129,8 @@ object MetadataStringSerializer extends MetadataSerializer[String] {
 abstract class AccumuloBackedMetadata[T](connector: Connector,
                                          catalogTable: String,
                                          serializer: MetadataSerializer[T],
-                                         rowEncoding: AccumuloMetadataRow)
+                                         rowEncoding: AccumuloMetadataRow,
+                                         tableConfig: TableConfig)
     extends GeoMesaMetadata[T] with LazyLogging {
 
   // cache for our metadata - invalidate every 10 minutes so we keep things current
@@ -240,7 +241,7 @@ abstract class AccumuloBackedMetadata[T](connector: Connector,
 
   private def ensureTableExists(): Unit = synchronized {
     if (!tableExists) {
-      AccumuloVersion.ensureTableExists(connector, catalogTable)
+      AccumuloVersion.ensureTableExists(connector, catalogTable, tableConfig)
       tableExists = true
     }
   }
@@ -283,8 +284,11 @@ trait AccumuloMetadataRow {
   def getTypeName(row: Text): String
 }
 
-class SingleRowAccumuloMetadata[T](connector: Connector, catalogTable: String, serializer: MetadataSerializer[T])
-    extends AccumuloBackedMetadata[T](connector, catalogTable, serializer, SingleRowAccumuloMetadata) {
+class SingleRowAccumuloMetadata[T](connector: Connector,
+                                   catalogTable: String,
+                                   serializer: MetadataSerializer[T],
+                                   tableConfig: TableConfig)
+    extends AccumuloBackedMetadata[T](connector, catalogTable, serializer, SingleRowAccumuloMetadata, tableConfig) {
 
   import SingleRowAccumuloMetadata._
 
@@ -320,8 +324,11 @@ object SingleRowAccumuloMetadata extends AccumuloMetadataRow {
   }
 }
 
-class MultiRowAccumuloMetadata[T](connector: Connector, catalogTable: String, serializer: MetadataSerializer[T])
-    extends AccumuloBackedMetadata[T](connector, catalogTable, serializer, MultiRowAccumuloMetadata) {
+class MultiRowAccumuloMetadata[T](connector: Connector,
+                                  catalogTable: String,
+                                  serializer: MetadataSerializer[T],
+                                  tableConfig: TableConfig)
+    extends AccumuloBackedMetadata[T](connector, catalogTable, serializer, MultiRowAccumuloMetadata, tableConfig) {
 
   override def getFeatureTypes: Array[String] = {
     val scanner = createScanner

@@ -14,6 +14,7 @@ import org.apache.accumulo.core.security.Authorizations
 import org.joda.time.Interval
 import org.joda.time.format.DateTimeFormat
 import org.junit.runner.RunWith
+import org.locationtech.geomesa.accumulo.data.TableConfig
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
@@ -26,11 +27,12 @@ class UsageStatReaderTest extends Specification {
   val featureName = "stat_reader_test"
   val statsTable = s"${catalogTable}_${featureName}_queries"
 
+  val tableConfig = new TableConfig(true, true)
   val connector = new MockInstance().getConnector("user", new PasswordToken("password"))
 
   val auths = new Authorizations()
 
-  val writer = new UsageStatWriter(connector, statsTable)
+  val writer = new UsageStatWriter(connector, statsTable, tableConfig)
 
   def writeStat(stats: Seq[QueryStat], tableName: String) = {
     stats.foreach(writer.queueStat(_))

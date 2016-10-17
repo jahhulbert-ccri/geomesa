@@ -135,7 +135,7 @@ trait AttributeWritableIndexV5 extends AccumuloWritableIndex with AttributeSplit
     val table = GeoMesaTable.formatTableName(ops.catalogTable, tableSuffix, sft)
     ops.metadata.insert(sft.getTypeName, tableNameKey, table)
 
-    AccumuloVersion.ensureTableExists(ops.connector, table)
+    AccumuloVersion.ensureTableExists(ops.connector, table, ops.config.tableConfig)
 
     configureSplits(sft, ops)
 

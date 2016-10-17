@@ -128,6 +128,8 @@ object AccumuloDataStoreFactory {
     val collectQueryStats =
       !connector.isInstanceOf[MockConnector] && collectQueryStatsParam.lookupWithDefault[Boolean](params)
 
+    val tableConfig = TableConfig(versioning = true, logicalTime = logicalTime.lookupWithDefault[Boolean](params))
+
     AccumuloDataStoreConfig(
       queryTimeout,
       queryThreadsParam.lookupWithDefault(params),
@@ -136,7 +138,8 @@ object AccumuloDataStoreFactory {
       generateStatsParam.lookupWithDefault[Boolean](params),
       collectQueryStats,
       cachingParam.lookupWithDefault(params),
-      looseBBoxParam.lookupWithDefault(params)
+      looseBBoxParam.lookupWithDefault(params),
+      tableConfig
     )
   }
 
@@ -205,4 +208,5 @@ object AccumuloDataStoreParams {
   val cachingParam           = new Param("caching", classOf[java.lang.Boolean], "Cache the results of queries for faster repeated searches. Warning: large result sets can swamp memory", false, false)
   val mockParam              = new Param("useMock", classOf[String], "Use a mock connection (for testing)", false)
   val forceEmptyAuthsParam   = new Param("forceEmptyAuths", classOf[java.lang.Boolean], "Default to using no authorizations during queries, instead of using the connection user's authorizations", false, false)
+  val logicalTime            = new Param("logicalTime", classOf[java.lang.Boolean], "Use logical time for Accumulo keys", false, true)
 }

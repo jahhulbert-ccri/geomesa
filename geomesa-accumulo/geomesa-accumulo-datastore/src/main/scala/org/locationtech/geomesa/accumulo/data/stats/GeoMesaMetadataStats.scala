@@ -51,7 +51,7 @@ class GeoMesaMetadataStats(val ds: AccumuloDataStore, statsTable: String, genera
 
   import GeoMesaMetadataStats._
 
-  private val metadata = new MultiRowAccumuloMetadata(ds.connector, statsTable, new StatsMetadataSerializer(ds))
+  private val metadata = new MultiRowAccumuloMetadata(ds.connector, statsTable, new StatsMetadataSerializer(ds), ds.config.tableConfig)
 
   private val compactionScheduled = new AtomicBoolean(false)
   private val lastCompaction = new AtomicLong(0L)
@@ -486,8 +486,8 @@ object GeoMesaMetadataStats {
     * @param table stats table
     * @param sft simple feature type
     */
-  def configureStatCombiner(connector: Connector, table: String, sft: SimpleFeatureType): Unit = {
-    AccumuloVersion.ensureTableExists(connector, table)
+  def configureStatCombiner(connector: Connector, table: String, sft: SimpleFeatureType, tableConfig: TableConfig): Unit = {
+    AccumuloVersion.ensureTableExists(connector, table, tableConfig)
     val tableOps = connector.tableOperations()
 
     def attach(options: Map[String, String]): Unit = {

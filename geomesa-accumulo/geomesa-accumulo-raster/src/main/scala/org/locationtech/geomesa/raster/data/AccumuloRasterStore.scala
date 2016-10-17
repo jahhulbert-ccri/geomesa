@@ -21,6 +21,7 @@ import org.apache.accumulo.core.data.{Key, Mutation, Range, Value}
 import org.apache.accumulo.core.security.TablePermission
 import org.geotools.coverage.grid.GridEnvelope2D
 import org.joda.time.DateTime
+import org.locationtech.geomesa.accumulo.data.TableConfig
 import org.locationtech.geomesa.accumulo.data.stats.usage._
 import org.locationtech.geomesa.accumulo.index.QueryPlan
 import org.locationtech.geomesa.accumulo.util.SelfClosingIterator
@@ -35,13 +36,14 @@ import org.locationtech.geomesa.utils.stats.{MethodProfiling, NoOpTimings, Timin
 import scala.collection.JavaConversions._
 
 class AccumuloRasterStore(val connector: Connector,
-                  val tableName: String,
-                  val authorizationsProvider: AuthorizationsProvider,
-                  val writeVisibilities: String,
-                  writeMemoryConfig: Option[String] = None,
-                  writeThreadsConfig: Option[Int] = None,
-                  queryThreadsConfig: Option[Int] = None,
-                  collectStats: Boolean = false) extends Closeable with MethodProfiling with LazyLogging {
+                          val tableName: String,
+                          val authorizationsProvider: AuthorizationsProvider,
+                          val writeVisibilities: String,
+                          writeMemoryConfig: Option[String] = None,
+                          writeThreadsConfig: Option[Int] = None,
+                          queryThreadsConfig: Option[Int] = None,
+                          collectStats: Boolean = false,
+                          tableConfig: TableConfig) extends Closeable with MethodProfiling with LazyLogging {
 
   val writeMemory = writeMemoryConfig.getOrElse("10000").toLong
   val writeThreads = writeThreadsConfig.getOrElse(10)
@@ -54,7 +56,7 @@ class AccumuloRasterStore(val connector: Connector,
   private val profileTable   = s"${tableName}_queries"
   private def getBoundsRowID = tableName + "_bounds"
 
-  private val usageStats = if (collectStats) new GeoMesaUsageStatsImpl(connector, profileTable, true) else null
+  private val usageStats = if (collectStats) new GeoMesaUsageStatsImpl(connector, profileTable, true, tableConfig) else null
 
   def getAuths = authorizationsProvider.getAuthorizations
 
@@ -317,7 +319,7 @@ object AccumuloRasterStore {
     val authorizationsProvider = AccumuloStoreHelper.getAuthorizationsProvider(auths.split(","), conn)
 
     val rasterStore = new AccumuloRasterStore(conn, tableName, authorizationsProvider, writeVisibilities,
-                        writeMemoryConfig, writeThreadsConfig, queryThreadsConfig, collectStats)
+                        writeMemoryConfig, writeThreadsConfig, queryThreadsConfig, collectStats, new TableConfig(true, true))
     // this will actually create the Accumulo Table
     rasterStore.createTableStructure()
 
