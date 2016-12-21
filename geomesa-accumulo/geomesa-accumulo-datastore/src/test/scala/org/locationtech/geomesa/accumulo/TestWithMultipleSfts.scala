@@ -46,7 +46,8 @@ trait TestWithMultipleSfts extends Specification {
     "connector" -> connector,
     "caching"   -> false,
     // note the table needs to be different to prevent testing errors
-    "tableName" -> sftBaseName)
+    "tableName" -> sftBaseName,
+    "looseBoundingBox" -> true)
 
   val ds = DataStoreFinder.getDataStore(dsParams.asJava).asInstanceOf[AccumuloDataStore]
 
