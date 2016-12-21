@@ -17,7 +17,7 @@ class SmallBBOXTest extends Specification with TestWithMultipleSfts  {
   val ff = CommonFactoryFinder.getFilterFactory2
   val defaultSft = createNewSchema("name:String:index=join,geom:Point:srid=4326,dtg:Date")
 
-  addFeature(defaultSft, ScalaSimpleFeature.create(defaultSft, "fid-1", "name1", "POINT(104.19004 39.529658)", "2010-05-07T04:30:00.000Z"))
+  addFeature(defaultSft, ScalaSimpleFeature.create(defaultSft, "fid-1", "name1", "POINT(104.19004  39.529658)", "2010-05-07T04:30:00.000Z"))
   addFeature(defaultSft, ScalaSimpleFeature.create(defaultSft, "fid-2", "name2", "POINT(104.190169 39.529619)", "2010-05-07T08:30:00.000Z"))
   addFeature(defaultSft, ScalaSimpleFeature.create(defaultSft, "fid-3", "name3", "POINT(104.189722 39.529467)", "2010-05-07T12:30:00.000Z"))
   addFeature(defaultSft, ScalaSimpleFeature.create(defaultSft, "fid-4", "name4", "POINT(104.190011 39.529425)", "2010-05-07T14:30:00.000Z"))
@@ -30,13 +30,15 @@ class SmallBBOXTest extends Specification with TestWithMultipleSfts  {
       val fs = ds.getFeatureSource(defaultSft.getTypeName)
 
       // bottom left,
-      val cqlFilter = ECQL.toFilter(s"dtg between 2010-05-07T00:00:00.000Z and 2010-05-08T00:00:00.000Z and within(geom, POLYGON((104.18975079390569 39.52894876216782, " +
-        s"                                                      104.18975079390569 39.52962397496765, " +
-        s"                                                      104.19029288401669 39.52962397496765, " +
-        s"                                                      104.19029288401669 39.52894876216782, " +
-        s"                                                      104.18975079390569 39.52894876216782)))")
+//      val cqlFilter = ECQL.toFilter(s"dtg between 2010-05-07T00:00:00.000Z and 2010-05-08T00:00:00.000Z and " +
+//        s"                                within(geom, POLYGON((104.18975079390569 30.52894876216782, " +
+//        s"                                                      104.18975079390569 30.52962397496765, " +
+//        s"                                                      104.19029288401669 30.52962397496765, " +
+//        s"                                                      104.19029288401669 30.52894876216782, " +
+//        s"                                                      104.18975079390569 30.52894876216782)))")
 
-
+      val cqlFilter = ECQL.toFilter(s"dtg between 2010-05-07T00:00:00.000Z and 2010-05-08T00:00:00.000Z " +
+        s"and bbox(geom, 104.18975079390569, 39.52894876216782, 104.19029288401669, 39.52962397496765)")
       val query = new Query(defaultSft.getTypeName, cqlFilter)
 
 

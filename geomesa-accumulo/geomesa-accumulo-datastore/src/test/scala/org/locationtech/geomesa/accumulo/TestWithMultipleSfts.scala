@@ -47,7 +47,7 @@ trait TestWithMultipleSfts extends Specification {
     "caching"   -> false,
     // note the table needs to be different to prevent testing errors
     "tableName" -> sftBaseName,
-    "looseBoundingBox" -> true)
+    "looseBoundingBox" -> false)
 
   val ds = DataStoreFinder.getDataStore(dsParams.asJava).asInstanceOf[AccumuloDataStore]
 
