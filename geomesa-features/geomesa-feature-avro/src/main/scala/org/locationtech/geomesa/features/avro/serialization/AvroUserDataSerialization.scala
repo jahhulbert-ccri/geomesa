@@ -35,6 +35,7 @@ object AvroUserDataSerialization extends GenericMapSerialization[Encoder, Decode
     filtered.foreach {
       case (key, value) =>
         out.startItem()
+
         if (key == null) {
           out.writeString(NullMarkerString)
         } else {

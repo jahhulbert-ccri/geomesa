@@ -13,7 +13,8 @@ import java.nio.charset.StandardCharsets
 import java.util
 import java.util.zip.Deflater
 
-import org.apache.avro.file.DataFileStream
+import org.apache.avro.file.{DataFileReader, DataFileStream}
+import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
 import org.geotools.factory.Hints
 import org.geotools.filter.identity.FeatureIdImpl
 import org.junit.runner.RunWith
