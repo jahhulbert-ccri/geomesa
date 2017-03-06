@@ -20,9 +20,13 @@ This creates a key space called "mykeyspace". This is a top-level name space wit
 and it will provide a place for GeoMesa to put all of its data, including data for spatial features
 and associated metadata.
 
-Next, you'll need to set the ``CASSANDRA_LIB`` environment variable. GeoMesa uses this variable
-to find the Cassandra jars. These jars should be in the ``lib`` directory of your Cassandra
-installation. To set the variable add the following line to your ``.profile`` or ``.bashrc`` file::
+Next, you'll need to set the ``CASSANDRA_LIB`` or ``CASSANDRA_HOME`` environment variable. If ``CASSANDRA_HOME`` is set
+then GeoMesa will automatically set ``CASSANDRA_LIB="${CASSANDRA_HOME}\lib`` at runtime. GeoMesa uses these variables
+to find the Cassandra jars. To set the variable add the following line to your ``.profile`` or ``.bashrc`` file::
+
+    export CASSANDRA_HOME=/path/to/cassandra
+
+or:
 
     export CASSANDRA_LIB=/path/to/cassandra/lib
 

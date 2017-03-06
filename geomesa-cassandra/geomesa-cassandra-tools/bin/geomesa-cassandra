@@ -26,6 +26,17 @@ if [[ -n "${GEOMESA_EXTRA_CLASSPATHS}" ]]; then
   GEOMESA_CP="${GEOMESA_CP}:${EXTRA_JARS}"
 fi
 
+# Try cassandra lib or home
+if [[ -z "${CASSANDRA_LIB}" && -d "${CASSANDRA_HOME}/lib" ]]; then
+  CASSANDRA_LIB="${CASSANDRA_HOME}/lib"
+fi
+
+if [[ -z "${CASSANDRA_LIB}" ]]; then
+  echo "ERROR: Unable to find cassandra...must set either CASSANDRA_LIB or CASSANDRA_HOME"
+  exit 1
+fi
+
+# If we ever set an install script for cassandra libs then add checks here
 CASSANDRA_CP="$(findJars $CASSANDRA_LIB true true)"
 
 # Geomesa tools setup completed, below we parse user arguments

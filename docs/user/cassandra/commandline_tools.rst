@@ -9,8 +9,8 @@ Before starting, check the following:
 
 - Make sure Cassandra is running (check by running ``bin/nodetool status`` in your
   Cassandra installation directory.)
-- Make sure you've set the ``CASSANDRA_LIB`` environment variable (check by running
-  ``echo $CASSANDRA_LIB``)
+- Make sure you've set the ``CASSANDRA_HOME`` or ``CASSANDRA_LIB`` environment variable (check by running
+  ``echo $CASSANDRA_HOME`` or ``echo $CASSANDRA_LIB``)
 - Make sure you've created a key space within Cassandra (check by starting ``bin/cqlsh`` in your
   Cassandra installation directory, and then by typing ``DESCRIBE KEYSPACES``)
 
