@@ -96,7 +96,6 @@ abstract class AbstractIngestJob {
 
   protected def defaultSearchPath: Iterator[() => Seq[File]] =
     Iterator(
-      () => ClassPathUtils.getFilesFromSystemProperty()
       () => ClassPathUtils.getJarsFromClasspath(getClass),
       () => ClassPathUtils.getFilesFromSystemProperty("geomesa.convert.scripts.path")
     )
