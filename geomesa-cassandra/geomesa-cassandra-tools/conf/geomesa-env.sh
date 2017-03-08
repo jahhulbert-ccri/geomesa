@@ -65,9 +65,9 @@ function setvar() {
 # Java Environment Variables
 # ==================================================================
 
-# Add directory to classpath
-# Add a colon separated list of directories to the GEOMESA_CP (class path variable).
-# Note this will exclude any slf4j files.
+# Prepend user defined classpaths to the GEOMESA_CP (class path variable).
+# Follows the standard Java classpaths syntax.
+# No filtering or expansion is performed on these classpaths.
 #
 # setvar GEOMESA_EXTRA_CLASSPATHS /some/dir/:/another/dir/
 
