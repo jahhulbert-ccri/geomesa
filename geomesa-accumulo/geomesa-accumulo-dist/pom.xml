@@ -99,6 +99,12 @@
             <groupId>org.locationtech.geomesa</groupId>
             <artifactId>geomesa-accumulo-tools_${scala.binary.version}</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.locationtech.geomesa</groupId>
+            <artifactId>geomesa-tools_${scala.binary.version}</artifactId>
+            <classifier>data</classifier>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- additional deps to manage in for deploying to lib dir-->
         <dependency>
