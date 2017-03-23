@@ -30,6 +30,12 @@ package object security {
       """.stripMargin,
       false)
 
+  val forceEmptyAuthsParam =
+    new Param("forceEmptyAuths",
+      classOf[java.lang.Boolean],
+      "Default to using no authorizations during queries, instead of using the connection user's authorizations",
+      false,
+      false)
   val authProviderParam = new Param("authProvider", classOf[AuthorizationsProvider], "Authorizations provider", false)
 
   implicit class SecureSimpleFeature(val sf: SimpleFeature) extends AnyVal {

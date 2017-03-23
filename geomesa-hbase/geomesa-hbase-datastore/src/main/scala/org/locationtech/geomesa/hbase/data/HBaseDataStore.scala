@@ -10,6 +10,7 @@ package org.locationtech.geomesa.hbase.data
 
 import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client._
+import org.apache.hadoop.hbase.security.visibility.Authorizations
 import org.geotools.data.Query
 import org.locationtech.geomesa.hbase._
 import org.locationtech.geomesa.hbase.data.HBaseDataStoreFactory.HBaseDataStoreConfig
@@ -21,7 +22,7 @@ import org.locationtech.geomesa.utils.index.IndexMode
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter.Filter
 
-class HBaseDataStore(val connection: Connection, config: HBaseDataStoreConfig)
+class HBaseDataStore(val connection: Connection, override val config: HBaseDataStoreConfig)
     extends HBaseDataStoreType(config) with LocalLocking {
 
   override val metadata: GeoMesaMetadata[String] =
@@ -72,4 +73,13 @@ class HBaseDataStore(val connection: Connection, config: HBaseDataStoreConfig)
   override def dispose(): Unit = {
     super.dispose()
   }
+
+  def applySecurity(query: org.apache.hadoop.hbase.client.Query): Unit =
+    authOpt.foreach(query.setAuthorizations)
+
+  def applySecurity(queries: Iterable[org.apache.hadoop.hbase.client.Query]): Unit =
+    authOpt.foreach { a => queries.foreach(_.setAuthorizations(a))}
+
+  private[this] def authOpt: Option[Authorizations] =
+    config.authProvider.map(_.getAuthorizations).map(new Authorizations(_))
 }

@@ -19,10 +19,10 @@ import org.apache.accumulo.core.client.{ClientConfiguration, Connector, ZooKeepe
 import org.geotools.data.DataAccessFactory.Param
 import org.geotools.data.{DataStoreFactorySpi, Parameter}
 import org.locationtech.geomesa.accumulo.audit.{AccumuloAuditService, ParamsAuditProvider}
+import org.locationtech.geomesa.accumulo.security.AccumuloAuthsProvider
 import org.locationtech.geomesa.index.api.GeoMesaFeatureIndex
 import org.locationtech.geomesa.index.geotools.GeoMesaDataStoreFactory
 import org.locationtech.geomesa.security
-import org.locationtech.geomesa.security.AuthorizationsProvider
 import org.locationtech.geomesa.utils.audit.AuditProvider
 import org.locationtech.geomesa.utils.conf.GeoMesaSystemProperties
 
@@ -70,7 +70,7 @@ class AccumuloDataStoreFactory extends DataStoreFactorySpi {
       forceEmptyAuthsParam
     )
 
-  def canProcess(params: JMap[String,Serializable]) = AccumuloDataStoreFactory.canProcess(params)
+  def canProcess(params: JMap[String,Serializable]): Boolean = AccumuloDataStoreFactory.canProcess(params)
 
   override def isAvailable = true
 
@@ -142,7 +142,7 @@ object AccumuloDataStoreFactory {
     )
   }
 
-  def buildAuditProvider(params: JMap[String, Serializable]) = {
+  def buildAuditProvider(params: JMap[String, Serializable]): AuditProvider = {
     Option(AuditProvider.Loader.load(params)).getOrElse {
       val provider = new ParamsAuditProvider
       provider.configure(params)
@@ -150,7 +150,7 @@ object AccumuloDataStoreFactory {
     }
   }
 
-  def buildAuthsProvider(connector: Connector, params: JMap[String, Serializable]): AuthorizationsProvider = {
+  def buildAuthsProvider(connector: Connector, params: JMap[String, Serializable]): AccumuloAuthsProvider = {
     val forceEmptyOpt: Option[java.lang.Boolean] = forceEmptyAuthsParam.lookupOpt[java.lang.Boolean](params)
     val forceEmptyAuths = forceEmptyOpt.getOrElse(java.lang.Boolean.FALSE).asInstanceOf[Boolean]
 
@@ -180,7 +180,7 @@ object AccumuloDataStoreFactory {
       if (forceEmptyAuths || configuredAuths.length > 0) configuredAuths.toList
       else masterAuthsStrings.toList
 
-    security.getAuthorizationsProvider(params, auths)
+    new AccumuloAuthsProvider(security.getAuthorizationsProvider(params, auths))
   }
 
   def canProcess(params: JMap[String,Serializable]): Boolean =
@@ -207,5 +207,5 @@ object AccumuloDataStoreParams {
   val auditQueriesParam      = GeoMesaDataStoreFactory.AuditQueriesParam
   val cachingParam           = GeoMesaDataStoreFactory.CachingParam
   val mockParam              = new Param("useMock", classOf[String], "Use a mock connection (for testing)", false)
-  val forceEmptyAuthsParam   = new Param("forceEmptyAuths", classOf[java.lang.Boolean], "Default to using no authorizations during queries, instead of using the connection user's authorizations", false, false)
+  val forceEmptyAuthsParam   = org.locationtech.geomesa.security.forceEmptyAuthsParam
 }

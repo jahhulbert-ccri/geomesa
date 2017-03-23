@@ -40,6 +40,7 @@ trait HBaseMetadataAdapter extends MetadataAdapter {
         val descriptor = new HTableDescriptor(catalog)
         descriptor.addFamily(ColumnFamilyDescriptor)
         admin.createTable(descriptor)
+
       }
     } finally {
       admin.close()

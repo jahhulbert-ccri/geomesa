@@ -50,7 +50,8 @@ trait HBaseFeatureWriter extends HBaseFeatureWriterType {
 
   override def flush(): Unit = {
     // note: BufferedMutator doesn't implement Flushable, so super class won't call it
-    mutators.foreach(m => FlushQuietly(m).foreach(exceptions.+=))
+    //mutators.foreach(m => FlushQuietly(m).foreach(exceptions.+=))
+    mutators.foreach(m => m.flush())
     super.flush()
   }
 }
