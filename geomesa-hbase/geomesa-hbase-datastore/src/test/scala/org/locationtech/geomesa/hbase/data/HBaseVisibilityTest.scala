@@ -29,6 +29,7 @@ import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import org.apache.hadoop.hbase.client.security.SecurityCapability
 import org.apache.hadoop.hbase.security.User
+import org.opengis.filter.Filter
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -39,33 +40,55 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
   sequential
 
   val cluster = new HBaseTestingUtility()
-  var userConnection: Connection = _
 
-  var superUser: User = _
-  var testUser: User = _
+  var adminUser: User = _
+  var user1: User = _
+  var user2: User = _
+  var privUser: User = _
+
+  var adminConn: Connection = _
+  var user1Conn: Connection = _
+  var user2Conn: Connection = _
+  var privConn: Connection = _
 
   step {
     logger.info("Starting embedded hbase")
     cluster.getConfiguration.set("hbase.superuser", "admin")
     cluster.startMiniCluster(1)
 
-    superUser = User.createUserForTesting(cluster.getConfiguration, "admin", Array[String]("supergroup"))
-    testUser  = User.createUserForTesting(cluster.getConfiguration, "testuser", Array.empty[String])
+    adminUser = User.createUserForTesting(cluster.getConfiguration, "admin", Array[String]("supergroup"))
+    user1  = User.createUserForTesting(cluster.getConfiguration, "user1", Array.empty[String])
+    user2  = User.createUserForTesting(cluster.getConfiguration, "user2", Array.empty[String])
+    privUser  = User.createUserForTesting(cluster.getConfiguration, "privUser", Array.empty[String])
 
-    superUser.runAs(new PrivilegedExceptionAction[Unit](){
+    adminUser.runAs(new PrivilegedExceptionAction[Unit](){
       override def run(): Unit = {
         cluster.waitTableAvailable(TableName.valueOf("hbase:labels"), 50000)
-        val labels = Array[String]("admin", "user", "super")
-        val supercon = ConnectionFactory.createConnection(cluster.getConfiguration)
-        VisibilityClient.addLabels(supercon, labels)
+        val labels = Array[String]("admin", "vis1", "vis2", "vis3", "super")
+        adminConn = ConnectionFactory.createConnection(cluster.getConfiguration)
+        VisibilityClient.addLabels(adminConn, labels)
         cluster.waitLabelAvailable(10000, labels: _*)
-        VisibilityClient.setAuths(supercon, Array[String]("admin", "user"), "testuser")
+        VisibilityClient.setAuths(adminConn, Array[String]("vis1"), "user1")
+        VisibilityClient.setAuths(adminConn, Array[String]("vis2"), "user2")
+        VisibilityClient.setAuths(adminConn, Array[String]("super", "vis3"), "privUser")
       }
     })
 
-    testUser.runAs(new PrivilegedExceptionAction[Unit](){
+    user1.runAs(new PrivilegedExceptionAction[Unit](){
       override def run(): Unit = {
-        userConnection = ConnectionFactory.createConnection(cluster.getConfiguration)
+        user1Conn = ConnectionFactory.createConnection(cluster.getConfiguration)
+      }
+    })
+
+    user2.runAs(new PrivilegedExceptionAction[Unit](){
+      override def run(): Unit = {
+        user2Conn = ConnectionFactory.createConnection(cluster.getConfiguration)
+      }
+    })
+
+    privUser.runAs(new PrivilegedExceptionAction[Unit](){
+      override def run(): Unit = {
+        privConn = ConnectionFactory.createConnection(cluster.getConfiguration)
       }
     })
 
@@ -80,10 +103,68 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
 
   "HBaseDataStore" should {
 
+    "properly filter vis" >> {
+      val typeName = "vistest1"
+      val params = Map(ConnectionParam.getName -> adminConn, BigTableNameParam.getName -> "vtest1")
+      val writeDS = DataStoreFinder.getDataStore(params).asInstanceOf[HBaseDataStore]
+
+      writeDS.getSchema(typeName) must beNull
+      writeDS.createSchema(SimpleFeatureTypes.createType(typeName, "name:String:index=true,dtg:Date,*geom:Point:srid=4326"))
+
+      val sft = writeDS.getSchema(typeName)
+      sft must not(beNull)
+      val fs = writeDS.getFeatureSource(typeName).asInstanceOf[SimpleFeatureStore]
+
+      case class Data(id: String, dtg: String, wkt: String, vis: String)
+      val data = Seq(
+        Data("1",         "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1"),
+        Data("2",         "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis2"),
+        Data("1-2",       "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1|vis2"),
+        Data("1-2-3",     "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1|vis2|vis3"),
+        Data("super", "2014-01-01T00:00:00.000Z", "POINT(1 1)", "(vis1|vis2|vis3)&super")
+      )
+
+      val toAdd = data.map{ d =>
+        import org.locationtech.geomesa.security._
+        val sf = new ScalaSimpleFeature(d.id, sft)
+        sf.getUserData.put(Hints.USE_PROVIDED_FID, java.lang.Boolean.TRUE)
+        sf.setAttribute(0, d.id)
+        sf.setAttribute(1, d.dtg)
+        sf.setAttribute(2, d.wkt)
+        sf.visibility = d.vis
+        sf
+      }
+
+      val ids = fs.addFeatures(new ListFeatureCollection(sft, toAdd))
+
+      val expect = Seq(
+        (user1Conn, Seq("1", "1-2", "1-2-3")),
+        (user2Conn, Seq("2", "1-2", "1-2-3")),
+        (privConn, Seq("1-2-3", "super"))
+      )
+
+      forall(expect) { vals =>
+        idQuery(vals._1, "vtest1", typeName) must containTheSameElementsAs(vals._2)
+      }
+
+    }
+
+    def idQuery(conn: Connection, tableName: String, typeName: String): Seq[String] = {
+      val query = new Query(typeName, Filter.INCLUDE)
+      val params = Map(ConnectionParam.getName -> conn, BigTableNameParam.getName -> tableName)
+
+      val ds = DataStoreFinder.getDataStore(params).asInstanceOf[HBaseDataStore]
+
+      val fr = ds.getFeatureReader(query, Transaction.AUTO_COMMIT)
+      val features = SelfClosingIterator(fr).toList
+
+      features.map(_.getID)
+    }
+
     "work with points" in {
       val typeName = "testpoints"
 
-      val params = Map(ConnectionParam.getName -> userConnection, BigTableNameParam.getName -> "test_sft")
+      val params = Map(ConnectionParam.getName -> user1Conn, BigTableNameParam.getName -> "test_sft")
       val ds = DataStoreFinder.getDataStore(params).asInstanceOf[HBaseDataStore]
 
       ds.getSchema(typeName) must beNull
@@ -103,7 +184,7 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
         sf.setAttribute(0, s"name$i")
         sf.setAttribute(1, f"2014-01-${i + 1}%02dT00:00:01.000Z")
         sf.setAttribute(2, s"POINT(4$i 5$i)")
-        if (i < 5) sf.visibility = "admin|user|super" else sf.visibility = "(admin|user)&super"
+        if (i < 5) sf.visibility = "admin|vis1|super" else sf.visibility = "(admin|vis1)&super"
         sf
       }
 
@@ -148,3 +229,4 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
     }
   }
 }
+
