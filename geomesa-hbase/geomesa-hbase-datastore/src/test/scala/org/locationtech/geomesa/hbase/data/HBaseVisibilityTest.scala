@@ -42,14 +42,14 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
   val cluster = new HBaseTestingUtility()
 
   var adminUser: User = _
-  var user1: User = _
-  var user2: User = _
-  var privUser: User = _
+  var user1:     User = _
+  var user2:     User = _
+  var privUser:  User = _
 
   var adminConn: Connection = _
   var user1Conn: Connection = _
   var user2Conn: Connection = _
-  var privConn: Connection = _
+  var privConn:  Connection = _
 
   step {
     logger.info("Starting embedded hbase")
@@ -92,7 +92,7 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
       }
     })
 
-    logger.info("Started")
+    logger.info("Successfully started embedded hbase")
   }
 
   "HBase cluster" should {
@@ -147,13 +147,11 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
       forall(expect) { vals =>
         idQuery(vals._1, tableName, typeName) must containTheSameElementsAs(vals._2)
       }
-
     }
 
     def idQuery(conn: Connection, tableName: String, typeName: String): Seq[String] = {
       val query = new Query(typeName, Filter.INCLUDE)
       val params = Map(ConnectionParam.getName -> conn, BigTableNameParam.getName -> tableName)
-
       val ds = DataStoreFinder.getDataStore(params).asInstanceOf[HBaseDataStore]
 
       val fr = ds.getFeatureReader(query, Transaction.AUTO_COMMIT)
