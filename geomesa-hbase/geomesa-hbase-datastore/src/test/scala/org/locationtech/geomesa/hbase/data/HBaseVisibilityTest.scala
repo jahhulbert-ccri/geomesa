@@ -105,7 +105,8 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
 
     "properly filter vis" >> {
       val typeName = "vistest1"
-      val params = Map(ConnectionParam.getName -> adminConn, BigTableNameParam.getName -> "vtest1")
+      val tableName = "vistest1"
+      val params = Map(ConnectionParam.getName -> adminConn, BigTableNameParam.getName -> tableName)
       val writeDS = DataStoreFinder.getDataStore(params).asInstanceOf[HBaseDataStore]
 
       writeDS.getSchema(typeName) must beNull
@@ -117,10 +118,10 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
 
       case class Data(id: String, dtg: String, wkt: String, vis: String)
       val data = Seq(
-        Data("1",         "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1"),
-        Data("2",         "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis2"),
-        Data("1-2",       "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1|vis2"),
-        Data("1-2-3",     "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1|vis2|vis3"),
+        Data("1",     "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1"),
+        Data("2",     "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis2"),
+        Data("1-2",   "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1|vis2"),
+        Data("1-2-3", "2014-01-01T00:00:00.000Z", "POINT(1 1)", "vis1|vis2|vis3"),
         Data("super", "2014-01-01T00:00:00.000Z", "POINT(1 1)", "(vis1|vis2|vis3)&super")
       )
 
@@ -140,11 +141,11 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
       val expect = Seq(
         (user1Conn, Seq("1", "1-2", "1-2-3")),
         (user2Conn, Seq("2", "1-2", "1-2-3")),
-        (privConn, Seq("1-2-3", "super"))
+        (privConn,  Seq("1-2-3", "super"))
       )
 
       forall(expect) { vals =>
-        idQuery(vals._1, "vtest1", typeName) must containTheSameElementsAs(vals._2)
+        idQuery(vals._1, tableName, typeName) must containTheSameElementsAs(vals._2)
       }
 
     }
