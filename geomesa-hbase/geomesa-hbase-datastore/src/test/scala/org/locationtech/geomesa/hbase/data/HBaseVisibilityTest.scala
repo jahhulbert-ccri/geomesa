@@ -17,7 +17,7 @@ import org.apache.hadoop.hbase.security.visibility.VisibilityClient
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.simple.SimpleFeatureStore
 import org.geotools.data.{DataStoreFinder, Query, Transaction}
-import org.geotools.factory.Hints
+import org.geotools.factory.{CommonFactoryFinder, Hints}
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.features.ScalaSimpleFeature
@@ -56,9 +56,9 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
     cluster.getConfiguration.set("hbase.superuser", "admin")
     cluster.startMiniCluster(1)
 
-    adminUser = User.createUserForTesting(cluster.getConfiguration, "admin", Array[String]("supergroup"))
-    user1  = User.createUserForTesting(cluster.getConfiguration, "user1", Array.empty[String])
-    user2  = User.createUserForTesting(cluster.getConfiguration, "user2", Array.empty[String])
+    adminUser = User.createUserForTesting(cluster.getConfiguration, "admin",    Array[String]("supergroup"))
+    user1     = User.createUserForTesting(cluster.getConfiguration, "user1",    Array.empty[String])
+    user2     = User.createUserForTesting(cluster.getConfiguration, "user2",    Array.empty[String])
     privUser  = User.createUserForTesting(cluster.getConfiguration, "privUser", Array.empty[String])
 
     adminUser.runAs(new PrivilegedExceptionAction[Unit](){
@@ -147,6 +147,20 @@ class HBaseVisibilityTest extends Specification with LazyLogging {
       forall(expect) { vals =>
         idQuery(vals._1, tableName, typeName) must containTheSameElementsAs(vals._2)
       }
+
+      {
+        val params = Map(ConnectionParam.getName -> user2Conn, BigTableNameParam.getName -> tableName)
+        val ds = DataStoreFinder.getDataStore(params).asInstanceOf[HBaseDataStore]
+        val remover = ds.getFeatureWriter(typeName, ECQL.toFilter("IN ('2')"), Transaction.AUTO_COMMIT)
+        val sf = remover.next()
+        remover.remove()
+        remover.close()
+
+        val ids = idQuery(user2Conn, tableName, typeName)
+        ids.contains("2") must beFalse
+      }
+
+
     }
 
     def idQuery(conn: Connection, tableName: String, typeName: String): Seq[String] = {

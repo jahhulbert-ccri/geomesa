@@ -9,10 +9,14 @@
 
 package org.locationtech.geomesa.hbase.index
 
+import java.util
+
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.filter.{KeyOnlyFilter, Filter => HBaseFilter}
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
+import org.apache.hadoop.hbase._
+import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.CellVisibility
+import org.apache.hadoop.hbase.security.visibility.VisibilityUtils
 import org.geotools.factory.Hints
 import org.locationtech.geomesa.hbase._
 import org.locationtech.geomesa.hbase.data._
@@ -20,6 +24,7 @@ import org.locationtech.geomesa.hbase.filters.JSimpleFeatureFilter
 import org.locationtech.geomesa.hbase.index.HBaseFeatureIndex.ScanConfig
 import org.locationtech.geomesa.index.index.ClientSideFiltering.RowAndValue
 import org.locationtech.geomesa.index.index.{ClientSideFiltering, IndexAdapter}
+import org.locationtech.geomesa.security.SecurityUtils
 import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.index.IndexMode.IndexMode
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
@@ -162,6 +167,10 @@ trait HBaseFeatureIndex extends HBaseFeatureIndexType
 
   override def rowAndValue(result: Result): RowAndValue = {
     val cell = result.rawCells()(0)
+    val list = new util.ArrayList[Tag]()
+    cell.
+    VisibilityUtils.extractVisibilityTags(cell, list)
+    VisibilityUtils.
     RowAndValue(cell.getRowArray, cell.getRowOffset, cell.getRowLength,
       cell.getValueArray, cell.getValueOffset, cell.getValueLength)
   }
@@ -199,4 +208,8 @@ trait HBaseFeatureIndex extends HBaseFeatureIndexType
       }.toSeq } else { Nil }
       ScanConfig(remoteFilters, toFeatures)
   }
+
+//  override def applyVisibility(r: Result): Unit = {
+//
+//  }
 }

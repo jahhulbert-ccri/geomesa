@@ -210,6 +210,8 @@ trait ClientSideFiltering[R] {
       }
     }
   }
+
+  def applyVisibility(sf: SimpleFeature): Unit = { }
 }
 
 object ClientSideFiltering {

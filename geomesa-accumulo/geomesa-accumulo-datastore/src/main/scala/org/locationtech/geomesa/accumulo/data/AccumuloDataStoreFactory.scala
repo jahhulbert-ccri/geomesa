@@ -211,7 +211,7 @@ object AccumuloDataStoreFactory {
 
   // Kerberos is only available in Accumulo >= 1.7.
   // Note: doesn't confirm whether correctly configured for Kerberos e.g. core-site.xml on CLASSPATH
-  def isKerberosAvailable() = {
+  def isKerberosAvailable: Boolean = {
     AccumuloVersion.accumuloVersion != AccumuloVersion.V15 && AccumuloVersion.accumuloVersion != AccumuloVersion.V16
   }
 
@@ -241,7 +241,7 @@ object AccumuloDataStoreParams {
   val userParam              = new Param("user", classOf[String], "Accumulo user", true)
   val passwordParam          = new Param("password", classOf[String], "Accumulo password", false, null, Collections.singletonMap(Parameter.IS_PASSWORD, java.lang.Boolean.TRUE))
   val keytabPathParam        = new Param("keytabPath", classOf[String], "Path to keytab file", false)
-  val authsParam             = org.locationtech.geomesa.security.authsParam
+  val authsParam             = org.locationtech.geomesa.security.AuthsParam
   val visibilityParam        = new Param("visibilities", classOf[String], "Default Accumulo visibilities to apply to all written data", false)
   val tableNameParam         = new Param("tableName", classOf[String], "Accumulo catalog table name", true)
   val queryTimeoutParam      = GeoMesaDataStoreFactory.QueryTimeoutParam
@@ -254,5 +254,5 @@ object AccumuloDataStoreParams {
   val auditQueriesParam      = GeoMesaDataStoreFactory.AuditQueriesParam
   val cachingParam           = GeoMesaDataStoreFactory.CachingParam
   val mockParam              = new Param("useMock", classOf[String], "Use a mock connection (for testing)", false)
-  val forceEmptyAuthsParam   = org.locationtech.geomesa.security.forceEmptyAuthsParam
+  val forceEmptyAuthsParam   = org.locationtech.geomesa.security.ForceEmptyAuthsParam
 }

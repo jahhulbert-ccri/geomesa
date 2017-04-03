@@ -27,7 +27,7 @@ class FilteringAuthorizationsProvider (val wrappedProvider: AuthorizationsProvid
     }
 
   override def configure(params: java.util.Map[String, java.io.Serializable]) {
-    val authString = authsParam.lookUp(params).asInstanceOf[String]
+    val authString = AuthsParam.lookUp(params).asInstanceOf[String]
     if (authString != null && !authString.isEmpty)
       filter = Option(authString.split(","))
 

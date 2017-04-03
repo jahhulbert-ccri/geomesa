@@ -90,8 +90,18 @@ class HBaseDataStoreFactory extends DataStoreFactorySpi {
   override def getDescription: String = HBaseDataStoreFactory.Description
 
   override def getParametersInfo: Array[Param] =
-    Array(BigTableNameParam, QueryThreadsParam, QueryTimeoutParam, GenerateStatsParam,
-      AuditQueriesParam, LooseBBoxParam, CachingParam, EnableSecurityParam, authsParam, forceEmptyAuthsParam)
+    Array(
+      BigTableNameParam,
+      QueryThreadsParam,
+      QueryTimeoutParam,
+      RemoteParam,
+      GenerateStatsParam,
+      AuditQueriesParam,
+      LooseBBoxParam,
+      CachingParam,
+      EnableSecurityParam,
+      AuthsParam,
+      ForceEmptyAuthsParam)
 
   override def canProcess(params: java.util.Map[String,Serializable]): Boolean = HBaseDataStoreFactory.canProcess(params)
 
@@ -103,16 +113,16 @@ class HBaseDataStoreFactory extends DataStoreFactorySpi {
 object HBaseDataStoreParams {
   val BigTableNameParam    = new Param("bigtable.table.name", classOf[String], "Table name", true)
   val ConnectionParam      = new Param("connection", classOf[Connection], "Connection", false)
-  val RemoteParam        = new Param("remote.filtering", classOf[Boolean], "Remote filtering", false)
+  val RemoteParam          = new Param("remote.filtering", classOf[Boolean], "Remote filtering", false)
   val LooseBBoxParam       = GeoMesaDataStoreFactory.LooseBBoxParam
   val QueryThreadsParam    = GeoMesaDataStoreFactory.QueryThreadsParam
   val GenerateStatsParam   = GeoMesaDataStoreFactory.GenerateStatsParam
   val AuditQueriesParam    = GeoMesaDataStoreFactory.AuditQueriesParam
   val QueryTimeoutParam    = GeoMesaDataStoreFactory.QueryTimeoutParam
   val CachingParam         = GeoMesaDataStoreFactory.CachingParam
-  val EnableSecurityParam  = new Param("enableSecurity", classOf[java.lang.Boolean], "Enable HBase Security (Visibilities)", false, false)
-  val authsParam           = org.locationtech.geomesa.security.authsParam
-  val forceEmptyAuthsParam = org.locationtech.geomesa.security.forceEmptyAuthsParam
+  val EnableSecurityParam  = new Param("security.enabled", classOf[java.lang.Boolean], "Enable HBase Security (Visibilities)", false, false)
+  val AuthsParam           = org.locationtech.geomesa.security.AuthsParam
+  val ForceEmptyAuthsParam = org.locationtech.geomesa.security.ForceEmptyAuthsParam
 
 }
 
@@ -135,8 +145,7 @@ object HBaseDataStoreFactory {
     params.containsKey(BigTableNameParam.key)
 
   def buildAuthsProvider(connection: Connection, params: java.util.Map[String, Serializable]): AuthorizationsProvider = {
-
-    val forceEmptyOpt: Option[java.lang.Boolean] = security.forceEmptyAuthsParam.lookupOpt[java.lang.Boolean](params)
+    val forceEmptyOpt: Option[java.lang.Boolean] = security.ForceEmptyAuthsParam.lookupOpt[java.lang.Boolean](params)
     val forceEmptyAuths = forceEmptyOpt.getOrElse(java.lang.Boolean.FALSE).asInstanceOf[Boolean]
 
     if (!VisibilityClient.isCellVisibilityEnabled(connection)) {
@@ -148,7 +157,7 @@ object HBaseDataStoreFactory {
     val masterAuths = VisibilityClient.getAuths(connection, userName).getAuthList.map(a => Bytes.toString(a.toByteArray))
 
     // get the auth params passed in as a comma-delimited string
-    val configuredAuths = authsParam.lookupOpt[String](params).getOrElse("").split(",").filter(s => !s.isEmpty)
+    val configuredAuths = AuthsParam.lookupOpt[String](params).getOrElse("").split(",").filter(s => !s.isEmpty)
 
     // verify that the configured auths are valid for the connector we are using (fail-fast)
     val invalidAuths = configuredAuths.filterNot(masterAuths.contains)
