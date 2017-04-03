@@ -51,6 +51,8 @@ class HBaseDataStoreFactory extends DataStoreFactorySpi {
     // TODO HBase Connections don't seem to be Serializable...deal with it
     val connection = ConnectionParam.lookupOpt[Connection](params).getOrElse(globalConnection)
 
+    val remote = RemoteParam.lookupOpt[Boolean](params).getOrElse(false)
+
     val catalog = BigTableNameParam.lookup[String](params)
 
     val generateStats = GenerateStatsParam.lookupWithDefault[Boolean](params)
@@ -80,7 +82,7 @@ class HBaseDataStoreFactory extends DataStoreFactorySpi {
       caching,
       authsProvider)
 
-    new HBaseDataStore(connection, config)
+    new HBaseDataStore(connection, remote, config)
   }
 
   override def getDisplayName: String = HBaseDataStoreFactory.DisplayName
@@ -101,6 +103,7 @@ class HBaseDataStoreFactory extends DataStoreFactorySpi {
 object HBaseDataStoreParams {
   val BigTableNameParam    = new Param("bigtable.table.name", classOf[String], "Table name", true)
   val ConnectionParam      = new Param("connection", classOf[Connection], "Connection", false)
+  val RemoteParam        = new Param("remote.filtering", classOf[Boolean], "Remote filtering", false)
   val LooseBBoxParam       = GeoMesaDataStoreFactory.LooseBBoxParam
   val QueryThreadsParam    = GeoMesaDataStoreFactory.QueryThreadsParam
   val GenerateStatsParam   = GeoMesaDataStoreFactory.GenerateStatsParam
