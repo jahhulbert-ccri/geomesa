@@ -15,6 +15,7 @@ import com.vividsolutions.jts.geom.Point
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.locationtech.geomesa.filter.function.{BasicValues, Convert2ViewerFunction, ExtendedValues}
+import org.locationtech.geomesa.formats.bin.BinSorter
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner

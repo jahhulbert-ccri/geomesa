@@ -46,8 +46,18 @@
             <artifactId>geomesa-security_${scala.binary.version}</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.locationtech.geomesa</groupId>
+            <artifactId>geomesa-formats_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-data</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${protobuf.version}</version>
         </dependency>
 
         <!-- provided deps -->
@@ -74,6 +84,10 @@
             <artifactId>hbase-testing-util</artifactId>
             <version>${hbase.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
         </dependency>
     </dependencies>
 
