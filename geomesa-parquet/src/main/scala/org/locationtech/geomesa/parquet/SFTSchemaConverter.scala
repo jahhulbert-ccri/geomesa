@@ -10,18 +10,17 @@
 package org.locationtech.geomesa.parquet
 
 import com.vividsolutions.jts.geom.Coordinate
-import org.apache.parquet.io.api.{Binary, PrimitiveConverter}
+import org.apache.parquet.io.api.{Binary, Converter, GroupConverter, PrimitiveConverter}
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
 import org.apache.parquet.schema.Type.Repetition
 import org.apache.parquet.schema.{MessageType, OriginalType, Type, Types}
-import org.geotools.factory.CommonFactoryFinder
-import org.geotools.feature.AttributeTypeBuilder
-import org.geotools.feature.`type`.GeometryTypeImpl
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.locationtech.geomesa.features.serialization.ObjectType
 import org.locationtech.geomesa.utils.geotools.SftBuilder
 import org.opengis.feature.`type`.AttributeDescriptor
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
+
+import scala.collection.mutable
 
 /**
   * Created by afox on 5/25/17.
@@ -32,7 +31,7 @@ object SFTSchemaConverter {
   def apply(sft: SimpleFeatureType): MessageType = {
     import scala.collection.JavaConversions._
     val idField =
-      Types.primitive(PrimitiveTypeName.BINARY, Repetition.REQUIRED)
+      Types.primitive(PrimitiveTypeName.BINARY, Repetition.REPEATED)
         .as(OriginalType.UTF8)
         .named("fid")
 
@@ -67,37 +66,41 @@ object SFTSchemaConverter {
     objectType match {
       case ObjectType.GEOMETRY =>
         // TODO: currently only dealing with Points packed into a 16 byte fixed array
-        Types.primitive(FIXED_LEN_BYTE_ARRAY, Repetition.REQUIRED)
-          .length(16)
+        Types.buildGroup(Repetition.REQUIRED)
+          .primitive(DOUBLE, Repetition.REQUIRED).named("x")
+          .primitive(DOUBLE, Repetition.REQUIRED).named("y")
           .named(ad.getLocalName)
+//        Types.primitive(FIXED_LEN_BYTE_ARRAY, Repetition.OPTIONAL)
+//          .length(16)
+//          .named(ad.getLocalName)
 
       case ObjectType.DATE =>
-        Types.primitive(INT64, Repetition.REQUIRED)
+        Types.primitive(INT64, Repetition.OPTIONAL)
           .named(ad.getLocalName)
 
       case ObjectType.STRING =>
-        Types.primitive(BINARY, Repetition.REQUIRED)
+        Types.primitive(BINARY, Repetition.OPTIONAL)
           .as(OriginalType.UTF8)
           .named(ad.getLocalName)
 
       case ObjectType.INT =>
-        Types.primitive(INT32, Repetition.REQUIRED)
+        Types.primitive(INT32, Repetition.OPTIONAL)
           .named(ad.getLocalName)
 
       case ObjectType.DOUBLE =>
-        Types.primitive(DOUBLE, Repetition.REQUIRED)
+        Types.primitive(DOUBLE, Repetition.OPTIONAL)
           .named(ad.getLocalName)
 
       case ObjectType.LONG =>
-        Types.primitive(INT64, Repetition.REQUIRED)
+        Types.primitive(INT64, Repetition.OPTIONAL)
           .named(ad.getLocalName)
 
       case ObjectType.FLOAT =>
-        Types.primitive(FLOAT, Repetition.REQUIRED)
+        Types.primitive(FLOAT, Repetition.OPTIONAL)
           .named(ad.getLocalName)
 
       case ObjectType.BOOLEAN =>
-        Types.primitive(BOOLEAN, Repetition.REQUIRED)
+        Types.primitive(BOOLEAN, Repetition.OPTIONAL)
           .named(ad.getLocalName)
 
       case ObjectType.BYTES =>
@@ -120,26 +123,63 @@ object SFTSchemaConverter {
 
   abstract class SimpleFeatureConverter(sf: SimpleFeature) extends PrimitiveConverter
 
-  def converters(sft: SimpleFeatureType, sf: SimpleFeature): Array[SimpleFeatureConverter] = {
+  class XC(sf: SimpleFeature, val values: mutable.HashMap[String, Double]) extends PrimitiveConverter {
+    override def addDouble(value: Double): Unit = {
+      sf
+      values.put("x", value)
+    }
+  }
+  class YC(sf: SimpleFeature, val values: mutable.HashMap[String, Double]) extends PrimitiveConverter {
+    override def addDouble(value: Double): Unit = {
+      values.put("y", value)
+    }
+  }
+
+  abstract class PointConverter(sf: SimpleFeature) extends GroupConverter {
+    val values: mutable.HashMap[String, Double] = mutable.HashMap.empty
+    val gf = JTSFactoryFinder.getGeometryFactory
+    val xyz = Array(
+      new XC(sf, values),
+      new YC(sf, values)
+    )
+
+    override def getConverter(fieldIndex: Int) = {
+      xyz(fieldIndex)
+    }
+
+  }
+
+  def converters(sft: SimpleFeatureType, sf: SimpleFeature): Array[Converter] = {
     import scala.collection.JavaConversions._
     sft.getAttributeDescriptors.zipWithIndex.map { case (ad, idx) => converterFor(ad, idx, sf) }.toArray
   }
 
-  def converterFor(ad: AttributeDescriptor, index: Int, sf: SimpleFeature): SimpleFeatureConverter = {
+  def converterFor(ad: AttributeDescriptor, index: Int, sf: SimpleFeature): Converter = {
     val binding = ad.getType.getBinding
     val (objectType, _) = ObjectType.selectType(binding, ad.getUserData)
     objectType match {
       case ObjectType.GEOMETRY =>
-        new SimpleFeatureConverter(sf) {
-          private val gf = JTSFactoryFinder.getGeometryFactory
-          override def addBinary(value: Binary): Unit = {
-            val buf = value.toByteBuffer
-            val x = buf.getDouble()
-            val y = buf.getDouble()
-            val pt = gf.createPoint(new Coordinate(x, y))
-            sf.setAttribute(index, pt)
+        new PointConverter(sf) {
+          override def end() = {
+            values.size
+            val pt = gf.createPoint(new Coordinate(1, 1))
+            sf.setDefaultGeometry(pt)
+          }
+
+          override def start() = {
+            values.size
           }
         }
+//        new SimpleFeatureConverter(sf) {
+//          private val gf = JTSFactoryFinder.getGeometryFactory
+//          override def addBinary(value: Binary): Unit = {
+//            val buf = value.toByteBuffer
+//            val x = buf.getDouble()
+//            val y = buf.getDouble()
+//            val pt = gf.createPoint(new Coordinate(x, y))
+//            sf.setAttribute(index, pt)
+//          }
+//        }
 
       case ObjectType.DATE =>
         new SimpleFeatureConverter(sf)  {

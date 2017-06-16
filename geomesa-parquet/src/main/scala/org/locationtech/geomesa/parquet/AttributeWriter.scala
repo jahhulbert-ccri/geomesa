@@ -9,7 +9,6 @@
 
 package org.locationtech.geomesa.parquet
 
-import java.nio.ByteBuffer
 import java.util.Date
 
 import com.vividsolutions.jts.geom.Point
@@ -53,23 +52,26 @@ object AttributeWriter {
     def write(recordConsumer: RecordConsumer, value: AnyRef): Unit
 
     override def apply(recordConsumer: RecordConsumer, value: AnyRef): Unit = {
-      recordConsumer.startField(fieldName, fieldIndex)
-      write(recordConsumer, value)
-      recordConsumer.endField(fieldName, fieldIndex)
+      if (value != null) {
+        recordConsumer.startField(fieldName, fieldIndex)
+        write(recordConsumer, value)
+        recordConsumer.endField(fieldName, fieldIndex)
+      }
     }
   }
 
   // NOTE: not thread safe
   class PointAttributeWriter(fieldName: String, fieldIndex: Int) extends AbstractAttributeWriter(fieldName, fieldIndex) {
-    private val bytes = ByteBuffer.allocate(16)
-
     override def write(recordConsumer: RecordConsumer, value: AnyRef): Unit = {
       val pt = value.asInstanceOf[Point]
-      bytes.position(0)
-      bytes.putDouble(pt.getX)
-      bytes.putDouble(pt.getY)
-      bytes.position(0)
-      recordConsumer.addBinary(Binary.fromReusedByteBuffer(bytes))
+      recordConsumer.startGroup()
+      recordConsumer.startField("x", 0)
+      recordConsumer.addDouble(pt.getX)
+      recordConsumer.endField("x", 0)
+      recordConsumer.startField("y", 1)
+      recordConsumer.addDouble(pt.getY)
+      recordConsumer.endField("y", 1)
+      recordConsumer.endGroup()
     }
   }
 

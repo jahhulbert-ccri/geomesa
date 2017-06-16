@@ -78,7 +78,9 @@ class FileSystemFeatureStore(entry: ContentEntry,
 
       override def remove(): Unit = throw new NotImplementedError()
 
-      override def close(): Unit = writers.invalidateAll()
+      override def close(): Unit = {
+        writers.invalidateAll()
+      }
 
     }
   }
