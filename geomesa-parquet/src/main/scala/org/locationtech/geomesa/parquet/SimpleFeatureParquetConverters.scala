@@ -10,7 +10,6 @@ import org.opengis.feature.`type`.AttributeDescriptor
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 
-
 class SimpleFeatureGroupConverter(sft: SimpleFeatureType) extends GroupConverter {
 
   private val idConverter = new PrimitiveConverter {
@@ -25,18 +24,12 @@ class SimpleFeatureGroupConverter(sft: SimpleFeatureType) extends GroupConverter
 
   override def start(): Unit = {
     current = new ScalaSimpleFeature("", sft)
-    current.setAttributes(Array.ofDim[AnyRef](numAttributes))
   }
 
-  override def end(): Unit = {
-    // make a copy so we can reuse the next when converting the next record
-    val ret = new ScalaSimpleFeature("", sft)
-    ret.getIdentifier.asInstanceOf[FeatureIdImpl].setID(current.getID)
-    ret.setAttributes(current.getAttributes)
-  }
+  override def end(): Unit = { }
 
   override def getConverter(fieldIndex: Int): Converter = converters(fieldIndex)
-  
+
 }
 
 abstract class SimpleFeatureFieldConverter(parent: SimpleFeatureGroupConverter) extends PrimitiveConverter
@@ -82,6 +75,7 @@ object SimpleFeatureParquetConverters {
   def converterFor(ad: AttributeDescriptor, index: Int, parent: SimpleFeatureGroupConverter): Converter = {
     val binding = ad.getType.getBinding
     val (objectType, _) = ObjectType.selectType(binding, ad.getUserData)
+
     objectType match {
 
       case ObjectType.GEOMETRY =>
