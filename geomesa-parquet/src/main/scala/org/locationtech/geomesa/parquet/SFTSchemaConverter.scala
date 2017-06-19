@@ -25,7 +25,6 @@ import org.opengis.feature.simple.SimpleFeatureType
   */
 object SFTSchemaConverter {
 
-
   def apply(sft: SimpleFeatureType): MessageType = {
     import scala.collection.JavaConversions._
     val idField =
@@ -116,43 +115,35 @@ object SFTSchemaConverter {
     }
   }
 
-  abstract class SimpleFeatureConverter(parent: SimpleFeatureGroupConverter) extends PrimitiveConverter {
-
-  }
-
-
-
-  class PointCoordConv(parent: PointConverter, xory: String) extends PrimitiveConverter {
-    override def addDouble(value: Double): Unit = {
-      xory match {
-        case "x" => parent.x = value
-        case "y" => parent.y = value
-      }
-    }
-  }
+  abstract class SimpleFeatureConverter(parent: SimpleFeatureGroupConverter) extends PrimitiveConverter
 
   class PointConverter(parent: SimpleFeatureGroupConverter) extends GroupConverter {
 
-    val gf = JTSFactoryFinder.getGeometryFactory
+    private val gf = JTSFactoryFinder.getGeometryFactory
+    private var x: Double = _
+    private var y: Double = _
 
     private val converters = Array[PrimitiveConverter](
-      new PointCoordConv(this, "x"),
-      new PointCoordConv(this, "y")
+      // Bind to this specific point converter
+      new PrimitiveConverter {
+        override def addDouble(value: Double): Unit = {
+          x = value
+        }
+      },
+      new PrimitiveConverter {
+        override def addDouble(value: Double): Unit = {
+          y = value
+        }
+      }
     )
 
-    var x: Double = _
-    var y: Double = _
-
-    override def getConverter(fieldIndex: Int) = {
+    override def getConverter(fieldIndex: Int): Converter = {
       converters(fieldIndex)
     }
 
-    override def start(): Unit = {
-      val foo = this
-    }
+    override def start(): Unit = {  }
 
     override def end(): Unit = {
-      val foo = this
       parent.current.setDefaultGeometry(gf.createPoint(new Coordinate(x, y)))
     }
   }
@@ -168,6 +159,7 @@ object SFTSchemaConverter {
     objectType match {
 
       case ObjectType.GEOMETRY =>
+        // TODO support union type of other geometries based on the SFT
         new PointConverter(parent)
 
       case ObjectType.DATE =>
@@ -249,7 +241,7 @@ object SFTSchemaConverter {
         null
 
       case ObjectType.UUID =>
-        // TODO:
+        // TODO: binary storage :)
         null
     }
 

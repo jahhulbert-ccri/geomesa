@@ -51,10 +51,13 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
       sf.getID must be equalTo "1"
       sf.getAttribute("name") must be equalTo "test"
       sf.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263
+      sf.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 27.436734
 
       val sf2 = reader.read()
       sf2.getID must be equalTo "2"
       sf2.getAttribute("name") must beNull
+      sf2.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 67.2363
+      sf2.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 55.236
 
     }
 
