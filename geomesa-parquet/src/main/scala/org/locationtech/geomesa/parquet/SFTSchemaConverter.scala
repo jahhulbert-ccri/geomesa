@@ -18,9 +18,7 @@ import org.geotools.geometry.jts.JTSFactoryFinder
 import org.locationtech.geomesa.features.serialization.ObjectType
 import org.locationtech.geomesa.utils.geotools.SftBuilder
 import org.opengis.feature.`type`.AttributeDescriptor
-import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
-
-import scala.collection.mutable
+import org.opengis.feature.simple.SimpleFeatureType
 
 /**
   * Created by afox on 5/25/17.
@@ -70,9 +68,6 @@ object SFTSchemaConverter {
           .primitive(DOUBLE, Repetition.REQUIRED).named("x")
           .primitive(DOUBLE, Repetition.REQUIRED).named("y")
           .named(ad.getLocalName)
-//        Types.primitive(FIXED_LEN_BYTE_ARRAY, Repetition.OPTIONAL)
-//          .length(16)
-//          .named(ad.getLocalName)
 
       case ObjectType.DATE =>
         Types.primitive(INT64, Repetition.OPTIONAL)
@@ -121,133 +116,127 @@ object SFTSchemaConverter {
     }
   }
 
-  abstract class SimpleFeatureConverter(sf: SimpleFeature) extends PrimitiveConverter
+  abstract class SimpleFeatureConverter(parent: SimpleFeatureGroupConverter) extends PrimitiveConverter {
 
-  class XC(sf: SimpleFeature, val values: mutable.HashMap[String, Double]) extends PrimitiveConverter {
-    override def addDouble(value: Double): Unit = {
-      sf
-      values.put("x", value)
-    }
-  }
-  class YC(sf: SimpleFeature, val values: mutable.HashMap[String, Double]) extends PrimitiveConverter {
-    override def addDouble(value: Double): Unit = {
-      values.put("y", value)
-    }
   }
 
-  abstract class PointConverter(sf: SimpleFeature) extends GroupConverter {
-    val values: mutable.HashMap[String, Double] = mutable.HashMap.empty
+
+
+  class PointCoordConv(parent: PointConverter, xory: String) extends PrimitiveConverter {
+    override def addDouble(value: Double): Unit = {
+      xory match {
+        case "x" => parent.x = value
+        case "y" => parent.y = value
+      }
+    }
+  }
+
+  class PointConverter(parent: SimpleFeatureGroupConverter) extends GroupConverter {
+
     val gf = JTSFactoryFinder.getGeometryFactory
-    val xyz = Array(
-      new XC(sf, values),
-      new YC(sf, values)
+
+    private val converters = Array[PrimitiveConverter](
+      new PointCoordConv(this, "x"),
+      new PointCoordConv(this, "y")
     )
 
+    var x: Double = _
+    var y: Double = _
+
     override def getConverter(fieldIndex: Int) = {
-      xyz(fieldIndex)
+      converters(fieldIndex)
     }
 
+    override def start(): Unit = {
+      val foo = this
+    }
+
+    override def end(): Unit = {
+      val foo = this
+      parent.current.setDefaultGeometry(gf.createPoint(new Coordinate(x, y)))
+    }
   }
 
-  def converters(sft: SimpleFeatureType, sf: SimpleFeature): Array[Converter] = {
+  def converters(sft: SimpleFeatureType, sfGC: SimpleFeatureGroupConverter): Array[Converter] = {
     import scala.collection.JavaConversions._
-    sft.getAttributeDescriptors.zipWithIndex.map { case (ad, idx) => converterFor(ad, idx, sf) }.toArray
+    sft.getAttributeDescriptors.zipWithIndex.map { case (ad, idx) => converterFor(ad, idx, sfGC) }.toArray
   }
 
-  def converterFor(ad: AttributeDescriptor, index: Int, sf: SimpleFeature): Converter = {
+  def converterFor(ad: AttributeDescriptor, index: Int, parent: SimpleFeatureGroupConverter ): Converter = {
     val binding = ad.getType.getBinding
     val (objectType, _) = ObjectType.selectType(binding, ad.getUserData)
     objectType match {
-      case ObjectType.GEOMETRY =>
-        new PointConverter(sf) {
-          override def end() = {
-            values.size
-            val pt = gf.createPoint(new Coordinate(1, 1))
-            sf.setDefaultGeometry(pt)
-          }
 
-          override def start() = {
-            values.size
-          }
-        }
-//        new SimpleFeatureConverter(sf) {
-//          private val gf = JTSFactoryFinder.getGeometryFactory
-//          override def addBinary(value: Binary): Unit = {
-//            val buf = value.toByteBuffer
-//            val x = buf.getDouble()
-//            val y = buf.getDouble()
-//            val pt = gf.createPoint(new Coordinate(x, y))
-//            sf.setAttribute(index, pt)
-//          }
-//        }
+      case ObjectType.GEOMETRY =>
+        new PointConverter(parent)
 
       case ObjectType.DATE =>
-        new SimpleFeatureConverter(sf)  {
+        new SimpleFeatureConverter(parent)  {
           override def addLong(value: Long): Unit = {
-            sf.setAttribute(index, value)
+            parent.current.setAttribute(index, value)
           }
         }
 
       case ObjectType.STRING =>
-        new SimpleFeatureConverter(sf)  {
+        new SimpleFeatureConverter(parent)  {
           override def addBinary(value: Binary): Unit = {
-            sf.setAttribute(index, value.toStringUsingUTF8)
+            parent.current.setAttribute(index, value.toStringUsingUTF8)
           }
         }
 
       case ObjectType.INT =>
-        new SimpleFeatureConverter(sf)  {
+        new SimpleFeatureConverter(parent)  {
           override def addInt(value: Int): Unit = {
-            sf.setAttribute(index, value)
+            parent.current.setAttribute(index, value)
           }
         }
 
       case ObjectType.DOUBLE =>
-        new SimpleFeatureConverter(sf) {
+        new SimpleFeatureConverter(parent) {
           override def addInt(value: Int): Unit = {
-            sf.setAttribute(index, value.toDouble)
+            parent.current.setAttribute(index, value.toDouble)
           }
 
           override def addDouble(value: Double): Unit = {
-            sf.setAttribute(index, value)
+            parent.current.setAttribute(index, value)
           }
 
           override def addFloat(value: Float): Unit = {
-            sf.setAttribute(index, value.toDouble)
+            parent.current.setAttribute(index, value.toDouble)
           }
 
           override def addLong(value: Long): Unit = {
-            sf.setAttribute(index, value.toDouble)
+            parent.current.setAttribute(index, value.toDouble)
           }
         }
 
       case ObjectType.LONG =>
-        new SimpleFeatureConverter(sf) {
+        new SimpleFeatureConverter(parent) {
           override def addLong(value: Long): Unit = {
-            sf.setAttribute(index, value)
+            parent.current.setAttribute(index, value)
           }
         }
 
 
       case ObjectType.FLOAT =>
-        new SimpleFeatureConverter(sf) {
+        new SimpleFeatureConverter(parent) {
           override def addFloat(value: Float): Unit = {
-            sf.setAttribute(index, value)
+            parent.current.setAttribute(index, value)
           }
         }
 
       case ObjectType.BOOLEAN =>
-        new SimpleFeatureConverter(sf) {
+        new SimpleFeatureConverter(parent) {
           override def addBoolean(value: Boolean): Unit = {
-            sf.setAttribute(index, value)
+            parent.current.setAttribute(index, value)
           }
         }
 
 
       case ObjectType.BYTES =>
-        new SimpleFeatureConverter(sf) {
+        new SimpleFeatureConverter(parent) {
           override def addBinary(value: Binary): Unit = {
-            sf.setAttribute(index, value.getBytes)
+            parent.current.setAttribute(index, value.getBytes)
           }
         }
 

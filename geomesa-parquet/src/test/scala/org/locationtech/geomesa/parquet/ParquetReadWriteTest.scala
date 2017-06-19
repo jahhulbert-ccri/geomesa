@@ -9,6 +9,7 @@
 
 package org.locationtech.geomesa.parquet
 
+
 import java.nio.file.Files
 
 import com.vividsolutions.jts.geom.{Coordinate, Point}
@@ -28,7 +29,7 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
 
   "SimpleFeatureParquetWriter" should {
     sequential
-    val f = Files.createTempFile("testnull", ".parquet")
+    val f = Files.createTempFile("andrew", ".parquet")
     val gf = JTSFactoryFinder.getGeometryFactory
     val sft = SimpleFeatureTypes.createType("test", "name:String,age:Int,dtg:Date,*geom:Point:srid=4326")
 
@@ -57,8 +58,5 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
 
     }
 
-//    step {
-//      Files.delete(f)
-//    }
   }
 }

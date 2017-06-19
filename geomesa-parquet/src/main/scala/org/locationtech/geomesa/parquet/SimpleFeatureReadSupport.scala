@@ -38,34 +38,41 @@ class SimpleFeatureReadSupport(sft: SimpleFeatureType) extends ReadSupport[Simpl
 }
 
 class SimpleFeatureRecordMaterializer(sft: SimpleFeatureType) extends RecordMaterializer[SimpleFeature] {
-  private val next: SimpleFeature = new ScalaSimpleFeature("", sft)
-  private var cur: SimpleFeature = _
+  private var conv = new SimpleFeatureGroupConverter(sft)
 
-  override def getRootConverter: GroupConverter = {
-    new GroupConverter {
-      private val idConverter = new PrimitiveConverter {
-        override def addBinary(value: Binary): Unit = {
-          next.getIdentifier.asInstanceOf[FeatureIdImpl].setID(value.toStringUsingUTF8)
-        }
-      }
+  override def getRootConverter: GroupConverter = conv
 
-      private val converters = SFTSchemaConverter.converters(sft, next) :+ idConverter
-      private val numAttributes = sft.getAttributeCount
+  override def getCurrentRecord: SimpleFeature = conv.current
+}
 
-      override def start(): Unit = {
-        next.setAttributes(Array.ofDim[AnyRef](numAttributes))
-      }
+class SimpleFeatureGroupConverter(sft: SimpleFeatureType) extends GroupConverter {
 
-      override def end(): Unit = {
-        // make a copy so we can reuse the next when converting the next record
-        cur = new ScalaSimpleFeature("", sft)
-        cur.getIdentifier.asInstanceOf[FeatureIdImpl].setID(next.getID)
-        cur.setAttributes(next.getAttributes)
-      }
+  private val x = 1
+  var current: SimpleFeature = _
 
-      override def getConverter(fieldIndex: Int): Converter = converters(fieldIndex)
+  private val idConverter = new PrimitiveConverter {
+    override def addBinary(value: Binary): Unit = {
+      current.getIdentifier.asInstanceOf[FeatureIdImpl].setID(value.toStringUsingUTF8)
     }
   }
 
-  override def getCurrentRecord: SimpleFeature = cur
+  private val converters = SFTSchemaConverter.converters(sft, this) :+ idConverter
+  private val numAttributes = sft.getAttributeCount
+
+  override def start(): Unit = {
+    current = new ScalaSimpleFeature("", sft)
+    current.setAttributes(Array.ofDim[AnyRef](numAttributes))
+  }
+
+  override def end(): Unit = {
+    // make a copy so we can reuse the next when converting the next record
+    val ret = new ScalaSimpleFeature("", sft)
+    ret.getIdentifier.asInstanceOf[FeatureIdImpl].setID(current.getID)
+    ret.setAttributes(current.getAttributes)
+  }
+
+  override def getConverter(fieldIndex: Int): Converter = converters(fieldIndex)
+
+
 }
+
