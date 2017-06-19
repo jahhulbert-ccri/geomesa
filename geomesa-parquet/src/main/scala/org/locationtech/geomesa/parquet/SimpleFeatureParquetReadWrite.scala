@@ -13,7 +13,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.column.ParquetProperties
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
-import org.apache.parquet.hadoop.{ParquetFileWriter, ParquetReader, ParquetWriter}
+import org.apache.parquet.hadoop.{ParquetFileWriter, ParquetWriter}
 import org.opengis.feature.simple.SimpleFeature
 
 class SimpleFeatureParquetWriter(path: Path, writeSupport: SimpleFeatureWriteSupport)
@@ -34,8 +34,8 @@ class SimpleFeatureParquetWriter(path: Path, writeSupport: SimpleFeatureWriteSup
 
 }
 
-class SimpleFeatureParquetReader(path: Path, readSupport: SimpleFeatureReadSupport)
-  extends ParquetReader[SimpleFeature](path, readSupport) {
-
-}
+//class SimpleFeatureParquetReader(path: Path, readSupport: SimpleFeatureReadSupport)
+//  extends ParquetReader[SimpleFeature](path, readSupport) {
+//
+//}
 

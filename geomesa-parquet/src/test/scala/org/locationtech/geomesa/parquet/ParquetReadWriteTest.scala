@@ -14,10 +14,14 @@ import java.nio.file.Files
 
 import com.vividsolutions.jts.geom.{Coordinate, Point}
 import org.apache.hadoop.fs.Path
+import org.apache.parquet.filter2.compat.FilterCompat
+import org.apache.parquet.hadoop.ParquetReader
+import org.geotools.factory.CommonFactoryFinder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
+import org.opengis.feature.simple.SimpleFeature
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import org.specs2.specification.AllExpectations
@@ -36,28 +40,83 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
     "write parquet files" >> {
       val writer = new SimpleFeatureParquetWriter(new Path(f.toUri), new SimpleFeatureWriteSupport(sft))
 
-      val sf = new ScalaSimpleFeature("1", sft, Array("test", Integer.valueOf(100), new java.util.Date, gf.createPoint(new Coordinate(25.236263, 27.436734))))
+      val sf = new ScalaSimpleFeature("1", sft, Array("first", Integer.valueOf(100), new java.util.Date, gf.createPoint(new Coordinate(25.236263, 27.436734))))
       val sf2 = new ScalaSimpleFeature("2", sft, Array(null, Integer.valueOf(200), new java.util.Date, gf.createPoint(new Coordinate(67.2363, 55.236))))
+      val sf3 = new ScalaSimpleFeature("3", sft, Array("third", Integer.valueOf(300), new java.util.Date, gf.createPoint(new Coordinate(73.0, 73.0))))
       writer.write(sf)
       writer.write(sf2)
+      writer.write(sf3)
       writer.close()
       Files.size(f) must be greaterThan 0
     }
 
     "read parquet files" >> {
-      val reader = new SimpleFeatureParquetReader(new Path(f.toUri), new SimpleFeatureReadSupport(sft))
-      val sf = reader.read()
+      val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(sft), new Path(f.toUri))
+        .withFilter(FilterCompat.NOOP)
+        .build()
 
+      val sf = reader.read()
+      sf.getAttributeCount mustEqual 4
       sf.getID must be equalTo "1"
-      sf.getAttribute("name") must be equalTo "test"
+      sf.getAttribute("name") must be equalTo "first"
       sf.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263
       sf.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 27.436734
 
       val sf2 = reader.read()
+      sf2.getAttributeCount mustEqual 4
       sf2.getID must be equalTo "2"
       sf2.getAttribute("name") must beNull
       sf2.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 67.2363
       sf2.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 55.236
+
+      val sf3 = reader.read()
+      sf3.getAttributeCount mustEqual 4
+      sf3.getID must be equalTo "3"
+      sf3.getAttribute("name") must be equalTo "third"
+      sf3.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
+      sf3.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 73.0
+    }
+
+    "only read transform columns" >> {
+      val tsft = SimpleFeatureTypes.createType("test", "name:String,dtg:Date,*geom:Point:srid=4326")
+      val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
+        .withFilter(FilterCompat.NOOP)
+        .build()
+      val sf = reader.read()
+      sf.getAttributeCount mustEqual 3
+      sf.getID must be equalTo "1"
+      sf.getAttribute("name") must be equalTo "first"
+      sf.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263
+      sf.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 27.436734
+
+      val sf2 = reader.read()
+      sf2.getAttributeCount mustEqual 3
+      sf2.getID must be equalTo "2"
+      sf2.getAttribute("name") must beNull
+      sf2.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 67.2363
+      sf2.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 55.236
+
+    }
+
+    "perform filtering" >> {
+      val tsft = SimpleFeatureTypes.createType("test", "name:String,dtg:Date,*geom:Point:srid=4326")
+
+      val ff = CommonFactoryFinder.getFilterFactory2
+      val geoFilter = ff.equals(ff.property("name"), ff.literal("first"))
+      val pFilter = FilterCompat.get(new FilterConverter(tsft).toParquet(geoFilter))
+
+      val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
+        .withFilter(pFilter)
+        .build()
+
+      val sf = reader.read()
+      sf.getAttributeCount mustEqual 3
+      sf.getID must be equalTo "1"
+      sf.getAttribute("name") must be equalTo "first"
+      sf.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263
+      sf.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 27.436734
+
+      reader.read() mustEqual null
 
     }
 

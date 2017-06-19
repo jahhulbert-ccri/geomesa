@@ -44,6 +44,11 @@
             <artifactId>geomesa-fs-storage-api_2.11</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.locationtech.geomesa</groupId>
+            <artifactId>geomesa-index-api_2.11</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Test dependencies -->
         <dependency>

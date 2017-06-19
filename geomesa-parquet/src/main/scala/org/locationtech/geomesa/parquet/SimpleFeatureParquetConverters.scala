@@ -1,3 +1,11 @@
+/***********************************************************************
+ * Copyright (c) 2013-2017 Commonwealth Computer Research, Inc.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Apache License, Version 2.0
+ * which accompanies this distribution and is available at
+ * http://www.opensource.org/licenses/apache2.0.php.
+ ***********************************************************************/
+
 package org.locationtech.geomesa.parquet
 
 import com.vividsolutions.jts.geom.Coordinate
@@ -41,7 +49,7 @@ class PointConverter(parent: SimpleFeatureGroupConverter) extends GroupConverter
   private var y: Double = _
 
   private val converters = Array[PrimitiveConverter](
-    // Bind to this specific point converter
+    // Specific to this PointConverter instance
     new PrimitiveConverter {
       override def addDouble(value: Double): Unit = {
         x = value
@@ -58,7 +66,10 @@ class PointConverter(parent: SimpleFeatureGroupConverter) extends GroupConverter
     converters(fieldIndex)
   }
 
-  override def start(): Unit = {}
+  override def start(): Unit = {
+    x = 0.0
+    y = 0.0
+  }
 
   override def end(): Unit = {
     parent.current.setDefaultGeometry(gf.createPoint(new Coordinate(x, y)))

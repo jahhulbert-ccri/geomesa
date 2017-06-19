@@ -14,6 +14,8 @@ import java.{io, util}
 import com.google.common.collect.{Iterators, Maps}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.parquet.filter2.compat.FilterCompat
+import org.apache.parquet.hadoop.ParquetReader
 import org.geotools.data.Query
 import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemStorageFactory, FileSystemWriter}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
@@ -78,12 +80,26 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
   override def getReader(q: Query, part: String): java.util.Iterator[SimpleFeature] = {
     val sft = featureTypes.get(q.getTypeName)
     val path = new Path(root, new Path(q.getTypeName, part))
-    if (!fs.exists(path)) Iterators.emptyIterator[SimpleFeature]()
+    if (!fs.exists(path)) {
+      Iterators.emptyIterator[SimpleFeature]()
+    }
     else {
-      val support = new SimpleFeatureReadSupport(sft)
-      val reader = new SimpleFeatureParquetReader(path, support)
+
+      import org.locationtech.geomesa.index.conf.QueryHints._
+      val transformSft = q.getHints.getTransformSchema.getOrElse(sft)
+
+
+      val support = new SimpleFeatureReadSupport(transformSft)
+      // TODO: push down predicates and partition pruning
+
+      val filter = FilterCompat.get(new FilterConverter(transformSft).toParquet(q.getFilter))
+
+      val reader = ParquetReader.builder[SimpleFeature](support, path)
+        .withFilter(filter)
+        .build()
+
+
       new util.Iterator[SimpleFeature] {
-        // TODO: push down predicates and partition pruning
         var staged: SimpleFeature = _
 
         override def next(): SimpleFeature = staged
