@@ -29,7 +29,7 @@ class FileSystemFeatureIterator(fs: FileSystem,
     // if the result is empty, then scan all partitions
     // TODO: can we short-circuit if the query is outside the bounds
     val res = partitionScheme.coveringPartitions(q.getFilter).toList
-    if(res.isEmpty) storage.listPartitions(sft.getTypeName)
+    if (res.isEmpty) storage.listPartitions(sft.getTypeName)
     else res
   }
 

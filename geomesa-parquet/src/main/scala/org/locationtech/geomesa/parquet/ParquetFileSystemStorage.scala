@@ -88,22 +88,22 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
       import org.locationtech.geomesa.index.conf.QueryHints._
       val transformSft = q.getHints.getTransformSchema.getOrElse(sft)
 
-
       val support = new SimpleFeatureReadSupport(transformSft)
       // TODO: push down predicates and partition pruning
+      // TODO ensure that transforms are pushed to the ColumnIO in parquet.
+      // TODO: Push down full filter that can't be managed
 
-      val filter = FilterCompat.get(new FilterConverter(transformSft).toParquet(q.getFilter))
-
+      val parquetFilter = FilterCompat.get(new FilterConverter(transformSft).toParquet(q.getFilter))
       val reader = ParquetReader.builder[SimpleFeature](support, path)
-        .withFilter(filter)
+        .withFilter(parquetFilter)
         .build()
-
 
       new util.Iterator[SimpleFeature] {
         var staged: SimpleFeature = _
 
         override def next(): SimpleFeature = staged
 
+        // Full filtering is applied here
         override def hasNext: Boolean = {
           staged = null
           var cont = true
@@ -125,7 +125,7 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
     private val sft = featureTypes.get(featureType)
     private val writer = new SimpleFeatureParquetWriter(new Path(root, new Path(featureType, part)), new SimpleFeatureWriteSupport(sft))
 
-    override def writeFeature(f: SimpleFeature): Unit = writer.write(f)
+    override def write(f: SimpleFeature): Unit = writer.write(f)
 
     override def flush(): Unit = {}
 

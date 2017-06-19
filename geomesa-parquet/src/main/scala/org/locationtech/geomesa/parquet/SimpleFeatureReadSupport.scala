@@ -18,9 +18,7 @@ import org.apache.parquet.io.api._
 import org.apache.parquet.schema.MessageType
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
-/**
-  * Created by anthony on 5/27/17.
-  */
+// TODO this needs to handle the rest of the filter not handled by parquet?
 class SimpleFeatureReadSupport(sft: SimpleFeatureType) extends ReadSupport[SimpleFeature] {
 
   override def init(context: InitContext): ReadSupport.ReadContext = {

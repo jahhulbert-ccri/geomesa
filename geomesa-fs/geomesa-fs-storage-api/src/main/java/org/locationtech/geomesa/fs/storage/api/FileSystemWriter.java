@@ -12,7 +12,7 @@ import org.opengis.feature.simple.SimpleFeature;
 
 public interface FileSystemWriter {
 
-    void writeFeature(SimpleFeature f);
+    void write(SimpleFeature f);
 
     void flush();
 

@@ -68,7 +68,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
 
       override def write(): Unit = {
         val writer = writers.get(partitionScheme.getPartition(feature).name)
-        writer.writeFeature(feature)
+        writer.write(feature)
         feature = null
         count += 1
         if (count % flushCount == 0) {
