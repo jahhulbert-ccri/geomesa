@@ -33,9 +33,3 @@ class SimpleFeatureParquetWriter(path: Path, writeSupport: SimpleFeatureWriteSup
 
 
 }
-
-//class SimpleFeatureParquetReader(path: Path, readSupport: SimpleFeatureReadSupport)
-//  extends ParquetReader[SimpleFeature](path, readSupport) {
-//
-//}
-

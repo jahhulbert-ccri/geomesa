@@ -26,6 +26,8 @@ import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import org.specs2.specification.AllExpectations
 
+import scala.collection.mutable
+
 @RunWith(classOf[JUnitRunner])
 class ParquetReadWriteTest extends Specification with AllExpectations {
 
@@ -99,24 +101,58 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
     }
 
     "perform filtering" >> {
-      val tsft = SimpleFeatureTypes.createType("test", "name:String,dtg:Date,*geom:Point:srid=4326")
+      val tsft = SimpleFeatureTypes.createType("test", "name:String,*geom:Point:srid=4326")
 
       val ff = CommonFactoryFinder.getFilterFactory2
       val geoFilter = ff.equals(ff.property("name"), ff.literal("first"))
-      val pFilter = FilterCompat.get(new FilterConverter(tsft).toParquet(geoFilter))
 
-      val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
-        .withFilter(pFilter)
-        .build()
+      def getFeatures(geoFilter: org.opengis.filter.Filter): Seq[SimpleFeature] = {
+        val pFilter = FilterCompat.get(new FilterConverter(tsft).toParquet(geoFilter))
 
-      val sf = reader.read()
-      sf.getAttributeCount mustEqual 3
-      sf.getID must be equalTo "1"
-      sf.getAttribute("name") must be equalTo "first"
-      sf.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263
-      sf.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 27.436734
+        val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
+          .withFilter(pFilter)
+          .build()
 
-      reader.read() mustEqual null
+        val res = mutable.ListBuffer.empty[SimpleFeature]
+        var sf: SimpleFeature = reader.read()
+        while( sf != null) {
+          res += sf
+          sf = reader.read()
+        }
+        res
+      }
+
+      "equals" >> {
+        val res = getFeatures(ff.equals(ff.property("name"), ff.literal("first")))
+        res.size mustEqual 1
+        val sf = res.head
+
+        sf.getAttributeCount mustEqual 2
+        sf.getID must be equalTo "1"
+        sf.getAttribute("name") must be equalTo "first"
+        sf.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263
+        sf.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 27.436734
+
+      }
+
+      "not equals" >> {
+        val res = getFeatures(ff.notEqual(ff.property("name"), ff.literal("first")))
+        res.size mustEqual 2
+
+        val two = res.head
+        two.getAttributeCount mustEqual 2
+        two.getID must be equalTo "2"
+        two.getAttribute("name") must beNull
+        two.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 67.2363
+        two.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 67.2363
+
+        val three = res.last
+        three.getAttributeCount mustEqual 2
+        three.getID must be equalTo "3"
+        three.getAttribute("name") must be equalTo "third"
+        three.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
+        three.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
+      }
 
     }
 

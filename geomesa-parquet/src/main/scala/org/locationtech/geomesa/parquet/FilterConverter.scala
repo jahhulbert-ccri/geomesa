@@ -22,38 +22,52 @@ class FilterConverter(sft: SimpleFeatureType) {
       case or: org.opengis.filter.Or =>
         FilterApi.and(toParquet(or.getChildren.get(0)), toParquet(or.getChildren.get(1)))
 
-      case eq: org.opengis.filter.PropertyIsEqualTo =>
-        val name = eq.getExpression1.asInstanceOf[PropertyName].getPropertyName
-        val value = eq.getExpression2.toString
-        val jt = jType(name)
+      case binop: org.opengis.filter.BinaryComparisonOperator =>
+        val name = binop.getExpression1.asInstanceOf[PropertyName].getPropertyName
+        val value = binop.getExpression2.toString
+        binop match {
+          case eq: org.opengis.filter.PropertyIsEqualTo =>
+            FilterApi.eq(column(name), convert(name, value))
+          case neq: org.opengis.filter.PropertyIsNotEqualTo =>
+            FilterApi.notEq(column(name), convert(name, value))
+          case lt: org.opengis.filter.PropertyIsLessThan =>
+            FilterApi.lt(column(name), convert(name, value))
+          case lte: org.opengis.filter.PropertyIsLessThanOrEqualTo =>
+            FilterApi.ltEq(column(name), convert(name, value))
+          case gt: org.opengis.filter.PropertyIsGreaterThan =>
+            FilterApi.gt(column(name), convert(name, value))
+          case gte: org.opengis.filter.PropertyIsGreaterThanOrEqualTo =>
+            FilterApi.gtEq(column(name), convert(name, value))
+        }
 
-        FilterApi.eq[Binary, BinaryColumn](FilterApi.binaryColumn(name), Binary.fromString(value))
+        // TODO geotools based UDFs?
+
     }
-
 
   }
 
-//  def column(name: String) = {
-//    val ad = sft.getDescriptor(name)
-//    val binding = ad.getType.getBinding
-//    val (objectType, _) = ObjectType.selectType(binding, ad.getUserData)
-//
-//    objectType match {
-//      case ObjectType.STRING =>
-//        FilterApi.binaryColumn(name)
-//    }
-//  }
+  // Todo support other things than Binary
+  def column(name: String): BinaryColumn = {
+    val ad = sft.getDescriptor(name)
+    val binding = ad.getType.getBinding
+    val (objectType, _) = ObjectType.selectType(binding, ad.getUserData)
 
-  def jType(name: String) = {
+    objectType match {
+      case ObjectType.STRING =>
+        FilterApi.binaryColumn(name)
+    }
+  }
+
+  // Todo support other things than Binary
+  def convert(name: String, value: AnyRef): Binary = {
     val ad = sft.getDescriptor(name)
     val binding = ad.getType.getBinding
     val (objectType, _) = ObjectType.selectType(binding, ad.getUserData)
 
     objectType match {
 
-      case ObjectType.STRING => classOf[String]
+      case ObjectType.STRING => Binary.fromString(value.toString)
 
-      case ObjectType.INT => classOf[java.lang.Integer]
     }
   }
 }
