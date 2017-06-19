@@ -28,8 +28,8 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
   sequential
 
   "SimpleFeatureParquetWriter" should {
-    sequential
-    val f = Files.createTempFile("andrew", ".parquet")
+
+    val f = Files.createTempFile("geomesa", ".parquet")
     val gf = JTSFactoryFinder.getGeometryFactory
     val sft = SimpleFeatureTypes.createType("test", "name:String,age:Int,dtg:Date,*geom:Point:srid=4326")
 
@@ -59,6 +59,10 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
       sf2.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 67.2363
       sf2.getDefaultGeometry.asInstanceOf[Point].getY mustEqual 55.236
 
+    }
+
+    step {
+       Files.deleteIfExists(f)
     }
 
   }

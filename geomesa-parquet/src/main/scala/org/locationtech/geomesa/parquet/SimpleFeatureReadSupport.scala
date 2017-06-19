@@ -16,8 +16,6 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.parquet.hadoop.api.{InitContext, ReadSupport}
 import org.apache.parquet.io.api._
 import org.apache.parquet.schema.MessageType
-import org.geotools.filter.identity.FeatureIdImpl
-import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 /**
@@ -26,7 +24,7 @@ import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 class SimpleFeatureReadSupport(sft: SimpleFeatureType) extends ReadSupport[SimpleFeature] {
 
   override def init(context: InitContext): ReadSupport.ReadContext = {
-    new ReadSupport.ReadContext(SFTSchemaConverter(sft), Maps.newHashMap())
+    new ReadSupport.ReadContext(SimpleFeatureParquetSchema(sft), Maps.newHashMap())
   }
 
   override def prepareForRead(configuration: Configuration,
@@ -44,35 +42,3 @@ class SimpleFeatureRecordMaterializer(sft: SimpleFeatureType) extends RecordMate
 
   override def getCurrentRecord: SimpleFeature = conv.current
 }
-
-class SimpleFeatureGroupConverter(sft: SimpleFeatureType) extends GroupConverter {
-
-  private val x = 1
-  var current: SimpleFeature = _
-
-  private val idConverter = new PrimitiveConverter {
-    override def addBinary(value: Binary): Unit = {
-      current.getIdentifier.asInstanceOf[FeatureIdImpl].setID(value.toStringUsingUTF8)
-    }
-  }
-
-  private val converters = SFTSchemaConverter.converters(sft, this) :+ idConverter
-  private val numAttributes = sft.getAttributeCount
-
-  override def start(): Unit = {
-    current = new ScalaSimpleFeature("", sft)
-    current.setAttributes(Array.ofDim[AnyRef](numAttributes))
-  }
-
-  override def end(): Unit = {
-    // make a copy so we can reuse the next when converting the next record
-    val ret = new ScalaSimpleFeature("", sft)
-    ret.getIdentifier.asInstanceOf[FeatureIdImpl].setID(current.getID)
-    ret.setAttributes(current.getAttributes)
-  }
-
-  override def getConverter(fieldIndex: Int): Converter = converters(fieldIndex)
-
-
-}
-

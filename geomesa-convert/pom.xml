@@ -19,7 +19,7 @@
     <name>GeoMesa Convert</name>
     <packaging>pom</packaging>
 
-    <modules><!--
+    <modules>
         <module>geomesa-convert-avro</module>
         <module>geomesa-convert-common</module>
         <module>geomesa-convert-text</module>
@@ -27,7 +27,7 @@
         <module>geomesa-convert-xml</module>
         <module>geomesa-convert-json</module>
         <module>geomesa-convert-scripting</module>
-        <module>geomesa-convert-osm</module>-->
+        <module>geomesa-convert-osm</module>
         <module>geomesa-convert-all</module>
     </modules>
 

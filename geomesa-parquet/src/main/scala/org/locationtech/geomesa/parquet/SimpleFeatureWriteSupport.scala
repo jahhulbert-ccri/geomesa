@@ -17,9 +17,9 @@ import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 class SimpleFeatureWriteSupport(sft: SimpleFeatureType) extends WriteSupport[SimpleFeature] {
 
-  private val messageType = SFTSchemaConverter(sft)
+  private val messageType = SimpleFeatureParquetSchema(sft)
   private var consumer: RecordConsumer = _
-  private val writers = SFTSchemaConverter.buildAttributeWriters(sft)
+  private val writers = SimpleFeatureParquetSchema.buildAttributeWriters(sft)
   private val idIndex = sft.getAttributeCount // put the ID at the end of the record
 
   override def init(configuration: Configuration): WriteContext = {
@@ -46,7 +46,7 @@ class SimpleFeatureWriteSupport(sft: SimpleFeatureType) extends WriteSupport[Sim
   private def writeFields(attributes: java.util.List[AnyRef]) = {
     var i = 0
     var len = attributes.size()
-    while(i < len) {
+    while (i < len) {
       writers(i)(consumer, attributes.get(i))
       i+=1
     }
