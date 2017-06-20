@@ -9,10 +9,7 @@
 
 package org.locationtech.geomesa.parquet
 
-import java.io.File
-
 import com.vividsolutions.jts.geom.{Coordinate, Point}
-import org.apache.commons.io.FileUtils
 import org.geotools.data.Query
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.geometry.jts.JTSFactoryFinder
@@ -69,7 +66,7 @@ class ParquetFSTest extends Specification with AllExpectations {
     }
 
     step {
-      FileUtils.deleteDirectory(new File("/tmp/andrew"))
+//      FileUtils.deleteDirectory(new File("/tmp/andrew"))
     }
 
   }

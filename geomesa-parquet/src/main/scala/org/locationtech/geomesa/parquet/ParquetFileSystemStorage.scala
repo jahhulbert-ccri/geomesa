@@ -93,7 +93,11 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
       // TODO ensure that transforms are pushed to the ColumnIO in parquet.
       // TODO: Push down full filter that can't be managed
 
-      val parquetFilter = FilterCompat.get(new FilterConverter(transformSft).toParquet(q.getFilter))
+     val parquetFilter =  new FilterConverter(transformSft).toParquet(q.getFilter) match {
+        case Success(filter) => FilterCompat.get(filter)
+        case Failure(_) => FilterCompat.NOOP
+      }
+
       val reader = ParquetReader.builder[SimpleFeature](support, path)
         .withFilter(parquetFilter)
         .build()

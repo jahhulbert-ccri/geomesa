@@ -11,6 +11,7 @@ package org.locationtech.geomesa.fs
 
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Date
 
 import com.vividsolutions.jts.geom.Coordinate
@@ -36,31 +37,31 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         gf.createPoint(new Coordinate(10, 10))), sft, new FeatureIdImpl("1"))
 
     "partition based on date" >> {
-      val ps = new DatePartitionScheme(DateTimeFormatter.ofPattern("yyyy-MM-dd"), sft, "dtg")
+      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy-MM-dd"), ChronoUnit.DAYS, sft, "dtg")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017-01-03"
     }
 
     "partition based on date with slash delimiter" >> {
-      val ps = new DatePartitionScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), sft, "dtg")
+      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, sft, "dtg")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017/003/10"
     }
 
     "partition based on date with slash delimiter" >> {
-      val ps = new DatePartitionScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), sft, "dtg")
+      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, sft, "dtg")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017/003/10"
     }
 
     "intra-hour partition appropriately" >> {
-      val ps = new IntraHourPartitionScheme(15, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), sft, "dtg")
+      val ps = new IntraHourScheme(15, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), sft, "dtg")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017/003/1015"
     }
 
     "intra-hour 5 minute partitions" >> {
-      val ps = new IntraHourPartitionScheme(5, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), sft, "dtg")
+      val ps = new IntraHourScheme(5, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), sft, "dtg")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017/003/1015"
     }
@@ -74,12 +75,12 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         List[AnyRef]("test", Integer.valueOf(10), Date.from(Instant.parse("2017-01-03T10:15:30Z")),
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
-      val ps = new DateTimeZ2PartitionScheme(5, DateTimeFormatter.ofPattern("yyyy/DDD"), 10, sft, "dtg", "geom")
+      val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 10, sft, "dtg", "geom")
       val Partition(p) = ps.getPartition(sf)
-      p must be equalTo "2017/003/12"
+      p must be equalTo "2017/003/49"
 
       val Partition(q) = ps.getPartition(sf2)
-      q must be equalTo "2017/003/03"
+      q must be equalTo "2017/003/12"
 
     }
 
@@ -92,12 +93,12 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         List[AnyRef]("test", Integer.valueOf(10), Date.from(Instant.parse("2017-01-03T10:15:30Z")),
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
-      val ps = new DateTimeZ2PartitionScheme(5, DateTimeFormatter.ofPattern("yyyy/DDD"), 20, sft, "dtg", "geom")
+      val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 20, sft, "dtg", "geom")
       val Partition(p) = ps.getPartition(sf)
-      p must be equalTo "2017/003/049"
+      p must be equalTo "2017/003/196"
 
       val Partition(q) = ps.getPartition(sf2)
-      q must be equalTo "2017/003/012"
+      q must be equalTo "2017/003/051"
 
     }
 

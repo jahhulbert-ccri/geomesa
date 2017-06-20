@@ -30,6 +30,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
                              fs: FileSystem,
                              fileSystemStorage: FileSystemStorage) extends ContentFeatureStore(entry, query) {
   private val _sft = fileSystemStorage.getFeatureType(entry.getTypeName)
+
   override def getWriterInternal(query: Query, flags: Int): FeatureWriter[SimpleFeatureType, SimpleFeature] = {
     require(flags != 0, "no write flags set")
     require((flags | WRITER_ADD) == WRITER_ADD, "Only append supported")

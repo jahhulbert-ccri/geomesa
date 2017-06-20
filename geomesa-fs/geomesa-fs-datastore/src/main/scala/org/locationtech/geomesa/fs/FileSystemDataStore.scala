@@ -10,6 +10,7 @@ package org.locationtech.geomesa.fs
 
 import java.awt.RenderingHints
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.ServiceLoader
 import java.{io, util}
 
@@ -42,7 +43,8 @@ class FileSystemDataStore(fs: FileSystem,
 
   private def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = {
     // TODO: load the partition scheme from the metadata
-    new IntraHourPartitionScheme(15, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), sft, "dtg")
+    // TODO need to figure out stepping for time here...
+    new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 10, sft, "dtg", "geom")
   }
 
 }
@@ -81,7 +83,6 @@ class FileSystemDataStoreFactory extends DataStoreFactorySpi {
 }
 
 object FileSystemDataStoreParams {
-  val PathParam = new Param("fs.path", classOf[String], "Root of the filesystem hierarchy", true)
-  val EncodingParam = new Param("fs.encoding", classOf[String], "Encoding of data", true)
-
+  val PathParam            = new Param("fs.path", classOf[String], "Root of the filesystem hierarchy", true)
+  val EncodingParam        = new Param("fs.encoding", classOf[String], "Encoding of data", true)
 }

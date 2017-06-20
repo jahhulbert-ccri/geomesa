@@ -107,7 +107,7 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
       val geoFilter = ff.equals(ff.property("name"), ff.literal("first"))
 
       def getFeatures(geoFilter: org.opengis.filter.Filter): Seq[SimpleFeature] = {
-        val pFilter = FilterCompat.get(new FilterConverter(tsft).toParquet(geoFilter))
+        val pFilter = FilterCompat.get(new FilterConverter(tsft).toParquet(geoFilter).get)
 
         val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
           .withFilter(pFilter)
@@ -153,6 +153,10 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
         three.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
         three.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
       }
+
+    }
+
+    "query with a bbox" >> {
 
     }
 
