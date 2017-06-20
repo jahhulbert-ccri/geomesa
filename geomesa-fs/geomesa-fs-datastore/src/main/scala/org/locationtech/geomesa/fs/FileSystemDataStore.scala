@@ -19,15 +19,24 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.geotools.data.DataAccessFactory.Param
 import org.geotools.data.store.{ContentDataStore, ContentEntry, ContentFeatureSource}
 import org.geotools.data.{DataAccessFactory, DataStore, DataStoreFactorySpi, Query}
+import org.geotools.feature.NameImpl
 import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemStorageFactory}
 import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.SimpleFeatureType
 
+import scala.collection.JavaConverters._
+
 class FileSystemDataStore(fs: FileSystem,
                           root: Path,
-                          fileSystemStorage: FileSystemStorage) extends ContentDataStore {
+                          fileSystemStorage: FileSystemStorage,
+                          namespaceStr: String = null) extends ContentDataStore {
   import scala.collection.JavaConversions._
-  override def createTypeNames(): util.List[Name] = fileSystemStorage.listFeatureTypes().map { _.getName }
+
+  setNamespaceURI(namespaceStr)
+
+  override def createTypeNames(): util.List[Name] = {
+    fileSystemStorage.listFeatureTypes().map(name => new NameImpl(getNamespaceURI, name.getTypeName) : Name).asJava
+  }
 
   override def createFeatureSource(entry: ContentEntry): ContentFeatureSource = {
     val sft =
@@ -62,7 +71,10 @@ class FileSystemDataStoreFactory extends DataStoreFactorySpi {
     val fs = path.getFileSystem(new Configuration())
     // TODO: thread partitioning info through params
 //    val partitionScheme = new IntraHourPartitionScheme(15, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), storage.getSimpleFeatureType, "dtg")
-    new FileSystemDataStore(fs, path, storage)
+
+    val namespace = Option(NamespaceParam.lookUp(params)).map(_.asInstanceOf[String]).orNull
+
+    new FileSystemDataStore(fs, path, storage, namespace)
   }
 
   override def createNewDataStore(params: util.Map[String, io.Serializable]): DataStore =
@@ -73,7 +85,7 @@ class FileSystemDataStoreFactory extends DataStoreFactorySpi {
   override def canProcess(params: util.Map[String, io.Serializable]): Boolean =
     params.containsKey(PathParam.getName) && params.containsKey(EncodingParam.getName)
 
-  override def getParametersInfo: Array[DataAccessFactory.Param] = Array(PathParam, EncodingParam)
+  override def getParametersInfo: Array[DataAccessFactory.Param] = Array(PathParam, EncodingParam, NamespaceParam)
 
   override def getDescription: String = "GeoMesa FileSystem Data Store"
 
@@ -85,4 +97,6 @@ class FileSystemDataStoreFactory extends DataStoreFactorySpi {
 object FileSystemDataStoreParams {
   val PathParam            = new Param("fs.path", classOf[String], "Root of the filesystem hierarchy", true)
   val EncodingParam        = new Param("fs.encoding", classOf[String], "Encoding of data", true)
+  val NamespaceParam       = new Param("namespace", classOf[String], "Namespace", false)
+
 }

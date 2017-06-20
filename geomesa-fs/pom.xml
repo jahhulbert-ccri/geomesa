@@ -15,6 +15,7 @@
         <module>geomesa-fs-datastore</module>
         <module>geomesa-fs-storage-api</module>
         <module>geomesa-fs-tools</module>
+        <module>geomesa-fs-gs-plugin</module>
         <module>geomesa-fs-dist</module>
     </modules>
 
