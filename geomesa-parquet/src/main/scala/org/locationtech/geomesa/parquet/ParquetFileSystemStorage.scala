@@ -66,7 +66,7 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
     status.flatMap { f =>
       if(f.isDirectory) buildPartitionList(f.getPath, s"$prefix${f.getPath.getName}/")
       else {
-        if(f.getPath.getName.equals("schema.sft")) List()
+        if (f.getPath.getName.equals("schema.sft")) List()
         else List(s"$prefix${f.getPath.getName}")
       }
     }.toList
@@ -93,10 +93,10 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
       // TODO ensure that transforms are pushed to the ColumnIO in parquet.
       // TODO: Push down full filter that can't be managed
 
-     val parquetFilter =  new FilterConverter(transformSft).toParquet(q.getFilter) match {
-        case Success(filter) => FilterCompat.get(filter)
-        case Failure(_) => FilterCompat.NOOP
-      }
+     val parquetFilter =  new FilterConverter(transformSft)
+       .convert(q.getFilter)
+       .map(FilterCompat.get)
+       .getOrElse(FilterCompat.NOOP)
 
       val reader = ParquetReader.builder[SimpleFeature](support, path)
         .withFilter(parquetFilter)

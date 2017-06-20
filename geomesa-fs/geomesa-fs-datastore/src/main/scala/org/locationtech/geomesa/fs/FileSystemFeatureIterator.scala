@@ -28,14 +28,20 @@ class FileSystemFeatureIterator(fs: FileSystem,
       // Get the partitions from the partition scheme
     // if the result is empty, then scan all partitions
     // TODO: can we short-circuit if the query is outside the bounds
-    val res = partitionScheme.coveringPartitions(q.getFilter).toList
-    if (res.isEmpty) storage.listPartitions(sft.getTypeName)
-    else res
+    val res = partitionScheme.coveringPartitions(q.getFilter)
+    val storagePartitions = storage.listPartitions(sft.getTypeName)
+    if (res.isEmpty) {
+      storagePartitions
+    } else {
+      // TODO: for now we intersect the two to find the real files and not waste too much time
+      res.intersect(storagePartitions)
+    }
   }
 
-
-
-  private val internal = partitions.flatMap { i => storage.getReader(q, i) }.iterator
+  // TODO parallelization?
+  private val internal = partitions.flatMap {
+    i => storage.getReader(q, i)
+  }.iterator
 
   override def hasNext: Boolean = internal.hasNext
 

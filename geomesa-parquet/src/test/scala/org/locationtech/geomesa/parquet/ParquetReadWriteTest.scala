@@ -21,7 +21,7 @@ import org.geotools.geometry.jts.JTSFactoryFinder
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
-import org.opengis.feature.simple.SimpleFeature
+import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import org.specs2.specification.AllExpectations
@@ -101,13 +101,13 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
     }
 
     "perform filtering" >> {
-      val tsft = SimpleFeatureTypes.createType("test", "name:String,*geom:Point:srid=4326")
+      val nameAndGeom = SimpleFeatureTypes.createType("test", "name:String,*geom:Point:srid=4326")
 
       val ff = CommonFactoryFinder.getFilterFactory2
       val geoFilter = ff.equals(ff.property("name"), ff.literal("first"))
 
-      def getFeatures(geoFilter: org.opengis.filter.Filter): Seq[SimpleFeature] = {
-        val pFilter = FilterCompat.get(new FilterConverter(tsft).toParquet(geoFilter).get)
+      def getFeatures(geoFilter: org.opengis.filter.Filter, tsft: SimpleFeatureType): Seq[SimpleFeature] = {
+        val pFilter = FilterCompat.get(new FilterConverter(tsft).convert(geoFilter).get)
 
         val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
           .withFilter(pFilter)
@@ -123,7 +123,7 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
       }
 
       "equals" >> {
-        val res = getFeatures(ff.equals(ff.property("name"), ff.literal("first")))
+        val res = getFeatures(ff.equals(ff.property("name"), ff.literal("first")), nameAndGeom)
         res.size mustEqual 1
         val sf = res.head
 
@@ -136,7 +136,7 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
       }
 
       "not equals" >> {
-        val res = getFeatures(ff.notEqual(ff.property("name"), ff.literal("first")))
+        val res = getFeatures(ff.notEqual(ff.property("name"), ff.literal("first")), nameAndGeom)
         res.size mustEqual 2
 
         val two = res.head
@@ -153,11 +153,35 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
         three.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
         three.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
       }
+      "query with a bbox" >> {
+        import scala.collection.JavaConversions._
 
-    }
+        "small bbox" >> {
+          val env = gf.buildGeometry(List(gf.createPoint(new Coordinate(25.236263, 27.436734)))).getEnvelopeInternal
+          val res = getFeatures(ff.bbox("geom", env.getMinX - .1, env.getMinY - .1, env.getMaxX + .1, env.getMaxY + .1, "EPSG:4326"), sft)
+          res.size mustEqual 1
+          res.head.getAttribute("name") mustEqual "first"
+        }
 
-    "query with a bbox" >> {
+        "two points" >> {
+          val env = gf.buildGeometry(List(
+            gf.createPoint(new Coordinate(25.236263, 27.436734)),
+            gf.createPoint(new Coordinate(67.2363, 55.236))
+          )).getEnvelopeInternal
+          val res = getFeatures(ff.bbox("geom", env.getMinX - .1, env.getMinY - .1, env.getMaxX + .1, env.getMaxY + .1, "EPSG:4326"), sft)
+          res.size mustEqual 2
+          res.head.getAttribute("name") mustEqual "first"
 
+          res.last.getID mustEqual "2"
+        }
+
+        "3 points" >> {
+          val res = getFeatures(ff.bbox("geom", -30, -30, 80, 80, "EPSG:4326"), sft)
+          res.size mustEqual 3
+          res.head.getAttribute("name") mustEqual "first"
+          res.last.getID mustEqual "3"
+        }
+      }
     }
 
     step {

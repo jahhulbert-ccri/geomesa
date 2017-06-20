@@ -8,55 +8,107 @@
 
 package org.locationtech.geomesa.parquet
 
-import org.apache.parquet.filter2.compat.FilterCompat.{Filter => ParFilter}
 import org.apache.parquet.filter2.predicate.Operators.BinaryColumn
 import org.apache.parquet.filter2.predicate.{FilterApi, FilterPredicate}
 import org.apache.parquet.io.api.Binary
 import org.locationtech.geomesa.features.serialization.ObjectType
+import org.locationtech.geomesa.filter.FilterHelper
+import org.locationtech.geomesa.filter.FilterHelper.extractGeometries
+import org.locationtech.geomesa.utils.geotools.GeometryUtils
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter.expression.PropertyName
-import org.opengis.filter.{Filter => GeoFilter}
 
-import scala.util.Try
+import scala.collection.JavaConversions._
 
 
 class FilterConverter(sft: SimpleFeatureType) {
 
-  def toParquet(filter: GeoFilter): Try[FilterPredicate] = {
+  import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
+  protected val geomAttr: String = sft.getGeomField
+  protected val dtgAttrOpt: Option[String] = sft.getDtgField
 
-    Try (
-      filter match {
+  def convert(f: org.opengis.filter.Filter): Option[FilterPredicate] = {
+    val filters = List(geoFilter(f), dtgFilter(f), attrFilter(f)).flatten
+    if (filters.nonEmpty) {
+      Some(filters.reduceLeft(FilterApi.and))
+    } else{
+      None
+    }
+  }
 
-//        case and: org.opengis.filter.And =>
-//          FilterApi.and(toParquet(and.getChildren.get(0)), toParquet(and.getChildren.get(1)))
-//
-//        case or: org.opengis.filter.Or =>
-//          FilterApi.and(toParquet(or.getChildren.get(0)), toParquet(or.getChildren.get(1)))
-
-        case binop: org.opengis.filter.BinaryComparisonOperator =>
-          val name = binop.getExpression1.asInstanceOf[PropertyName].getPropertyName
-          val value = binop.getExpression2.toString
-          binop match {
-            case eq: org.opengis.filter.PropertyIsEqualTo =>
-              FilterApi.eq(column(name), convert(name, value))
-            case neq: org.opengis.filter.PropertyIsNotEqualTo =>
-              FilterApi.notEq(column(name), convert(name, value))
-            case lt: org.opengis.filter.PropertyIsLessThan =>
-              FilterApi.lt(column(name), convert(name, value))
-            case lte: org.opengis.filter.PropertyIsLessThanOrEqualTo =>
-              FilterApi.ltEq(column(name), convert(name, value))
-            case gt: org.opengis.filter.PropertyIsGreaterThan =>
-              FilterApi.gt(column(name), convert(name, value))
-            case gte: org.opengis.filter.PropertyIsGreaterThanOrEqualTo =>
-              FilterApi.gtEq(column(name), convert(name, value))
-
-
-          }
-
-        // TODO geotools based UDFs?
-
+  protected def dtgFilter(f: org.opengis.filter.Filter): Option[FilterPredicate] = {
+    dtgAttrOpt.map { dtgAttr =>
+      val filters = FilterHelper.extractIntervals(f, dtgAttr).values.map { case (start, end) =>
+        FilterApi.and(
+          FilterApi.gtEq(FilterApi.longColumn(dtgAttr), start.getMillis: java.lang.Long),
+          FilterApi.ltEq(FilterApi.longColumn(dtgAttr), end.getMillis: java.lang.Long)
+        )
       }
-    )
+
+      if (filters.nonEmpty) {
+        Some(filters.reduceLeft(FilterApi.and))
+      } else {
+        None
+      }
+    }
+  }.getOrElse(None)
+
+  protected def geoFilter(f: org.opengis.filter.Filter): Option[FilterPredicate] = {
+    val extracted = extractGeometries(f, geomAttr)
+    if (extracted.isEmpty || extracted.disjoint) {
+      None
+    } else {
+      val xy = extracted.values.map(GeometryUtils.bounds).reduce { (a, b) =>
+        (math.min(a._1, b._1),
+          math.min(a._2, b._2),
+          math.max(a._3, b._3),
+          math.max(a._4, b._4))
+      }
+      Some(
+        List[FilterPredicate](
+          FilterApi.gtEq(FilterApi.doubleColumn("geom.x"), Double.box(xy._1)),
+          FilterApi.gtEq(FilterApi.doubleColumn("geom.y"), Double.box(xy._2)),
+          FilterApi.ltEq(FilterApi.doubleColumn("geom.x"), Double.box(xy._3)),
+          FilterApi.ltEq(FilterApi.doubleColumn("geom.y"), Double.box(xy._4))
+       ).reduce(FilterApi.and)
+      )
+    }
+  }
+
+  protected def attrFilter(gtFilter: org.opengis.filter.Filter): Option[FilterPredicate] = {
+    gtFilter match {
+
+      case and: org.opengis.filter.And =>
+        Option(and.getChildren.flatMap(attrFilter).reduceLeft(FilterApi.and))
+
+      case or: org.opengis.filter.Or =>
+        Option(or.getChildren.flatMap(attrFilter).reduceLeft(FilterApi.or))
+
+      case binop: org.opengis.filter.BinaryComparisonOperator =>
+        val name = binop.getExpression1.asInstanceOf[PropertyName].getPropertyName
+        val value = binop.getExpression2.toString
+        binop match {
+          case eq: org.opengis.filter.PropertyIsEqualTo =>
+            Option(FilterApi.eq(column(name), convert(name, value)))
+          case neq: org.opengis.filter.PropertyIsNotEqualTo =>
+            Option(FilterApi.notEq(column(name), convert(name, value)))
+          case lt: org.opengis.filter.PropertyIsLessThan =>
+            Option(FilterApi.lt(column(name), convert(name, value)))
+          case lte: org.opengis.filter.PropertyIsLessThanOrEqualTo =>
+            Option(FilterApi.ltEq(column(name), convert(name, value)))
+          case gt: org.opengis.filter.PropertyIsGreaterThan =>
+            Option(FilterApi.gt(column(name), convert(name, value)))
+          case gte: org.opengis.filter.PropertyIsGreaterThanOrEqualTo =>
+            Option(FilterApi.gtEq(column(name), convert(name, value)))
+          case _ =>
+            None
+
+        }
+
+      case _ =>
+        None
+      // TODO geotools based UDFs?
+    }
   }
 
   // Todo support other things than Binary
