@@ -9,7 +9,10 @@
 
 package org.locationtech.geomesa.parquet
 
+import java.nio.file.Files
+
 import com.vividsolutions.jts.geom.{Coordinate, Point}
+import org.apache.commons.io.FileUtils
 import org.geotools.data.Query
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.geometry.jts.JTSFactoryFinder
@@ -33,11 +36,14 @@ class ParquetFSTest extends Specification with AllExpectations {
     val sft = SimpleFeatureTypes.createType("test", "name:String,age:Int,dtg:Date,*geom:Point:srid=4326")
     val ff = CommonFactoryFinder.getFilterFactory2
 
+    val tempDir = Files.createTempDirectory("geomesa")
+
+
     "create an fs" >> {
       val parquetFactory = new ParquetFileSystemStorageFactory
 
       val fsStorage = parquetFactory.build(Map(
-        "fs.path" -> "/tmp/andrew"
+        "fs.path" -> tempDir.toFile.getPath
       ))
 
       fsStorage.createNewFeatureType(sft)
@@ -66,7 +72,7 @@ class ParquetFSTest extends Specification with AllExpectations {
     }
 
     step {
-//      FileUtils.deleteDirectory(new File("/tmp/andrew"))
+      FileUtils.deleteDirectory(tempDir.toFile)
     }
 
   }
