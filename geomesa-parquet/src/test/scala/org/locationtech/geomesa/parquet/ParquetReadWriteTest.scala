@@ -11,6 +11,7 @@ package org.locationtech.geomesa.parquet
 
 
 import java.nio.file.Files
+import java.time.Instant
 
 import com.vividsolutions.jts.geom.{Coordinate, Point}
 import org.apache.hadoop.fs.Path
@@ -42,9 +43,13 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
     "write parquet files" >> {
       val writer = new SimpleFeatureParquetWriter(new Path(f.toUri), new SimpleFeatureWriteSupport(sft))
 
-      val sf = new ScalaSimpleFeature("1", sft, Array("first", Integer.valueOf(100), new java.util.Date, gf.createPoint(new Coordinate(25.236263, 27.436734))))
-      val sf2 = new ScalaSimpleFeature("2", sft, Array(null, Integer.valueOf(200), new java.util.Date, gf.createPoint(new Coordinate(67.2363, 55.236))))
-      val sf3 = new ScalaSimpleFeature("3", sft, Array("third", Integer.valueOf(300), new java.util.Date, gf.createPoint(new Coordinate(73.0, 73.0))))
+      val d1 = java.util.Date.from(Instant.parse("2017-01-01T00:00:00Z"))
+      val d2 = java.util.Date.from(Instant.parse("2017-01-02T00:00:00Z"))
+      val d3 = java.util.Date.from(Instant.parse("2017-01-03T00:00:00Z"))
+
+      val sf = new ScalaSimpleFeature("1", sft, Array("first", Integer.valueOf(100),  d1, gf.createPoint(new Coordinate(25.236263, 27.436734))))
+      val sf2 = new ScalaSimpleFeature("2", sft, Array(null, Integer.valueOf(200),    d2, gf.createPoint(new Coordinate(67.2363, 55.236))))
+      val sf3 = new ScalaSimpleFeature("3", sft, Array("third", Integer.valueOf(300), d3, gf.createPoint(new Coordinate(73.0, 73.0))))
       writer.write(sf)
       writer.write(sf2)
       writer.write(sf3)
@@ -153,12 +158,13 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
         three.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
         three.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
       }
+
       "query with a bbox" >> {
         import scala.collection.JavaConversions._
 
         "small bbox" >> {
           val env = gf.buildGeometry(List(gf.createPoint(new Coordinate(25.236263, 27.436734)))).getEnvelopeInternal
-          val res = getFeatures(ff.bbox("geom", env.getMinX - .1, env.getMinY - .1, env.getMaxX + .1, env.getMaxY + .1, "EPSG:4326"), sft)
+          val res = getFeatures(ff.bbox("geom", env.getMinX - .1, env.getMinY - .1, env.getMaxX + .1, env.getMaxY + .1, "EPSG:4326"), nameAndGeom)
           res.size mustEqual 1
           res.head.getAttribute("name") mustEqual "first"
         }
@@ -168,7 +174,7 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
             gf.createPoint(new Coordinate(25.236263, 27.436734)),
             gf.createPoint(new Coordinate(67.2363, 55.236))
           )).getEnvelopeInternal
-          val res = getFeatures(ff.bbox("geom", env.getMinX - .1, env.getMinY - .1, env.getMaxX + .1, env.getMaxY + .1, "EPSG:4326"), sft)
+          val res = getFeatures(ff.bbox("geom", env.getMinX - .1, env.getMinY - .1, env.getMaxX + .1, env.getMaxY + .1, "EPSG:4326"), nameAndGeom)
           res.size mustEqual 2
           res.head.getAttribute("name") mustEqual "first"
 
@@ -176,10 +182,26 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
         }
 
         "3 points" >> {
-          val res = getFeatures(ff.bbox("geom", -30, -30, 80, 80, "EPSG:4326"), sft)
+          val res = getFeatures(ff.bbox("geom", -30, -30, 80, 80, "EPSG:4326"), nameAndGeom)
           res.size mustEqual 3
           res.head.getAttribute("name") mustEqual "first"
           res.last.getID mustEqual "3"
+        }
+      }
+
+      "query with time" >> {
+
+        "day1" >> {
+          val res = getFeatures(ff.between(ff.property("dtg"), ff.literal("2016-12-131T12:00:00Z"), ff.literal("2017-01-01T00:00:00Z")), sft)
+          res.size mustEqual 1
+          res.head.getAttribute("name") mustEqual "first"
+        }
+
+        "day 2 and 3" >> {
+          val res = getFeatures(ff.between(ff.property("dtg"), ff.literal("2017-01-01T12:00:00Z"), ff.literal("2017-01-31T00:00:00Z")), sft)
+          res.size mustEqual 2
+          res.head.getAttribute("name") must beNull
+          res.last.getAttribute("name") mustEqual "third"
         }
       }
     }
