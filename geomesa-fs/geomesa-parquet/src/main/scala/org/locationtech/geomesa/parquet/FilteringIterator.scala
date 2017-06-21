@@ -46,6 +46,5 @@ class EmptyFsIterator(partition: String) extends FileSystemPartitionIterator {
   override def close(): Unit = {}
   override def next(): SimpleFeature = throw new NoSuchElementException
   override def hasNext: Boolean = false
-
   override def getPartition: String = partition
 }

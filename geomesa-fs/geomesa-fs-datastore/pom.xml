@@ -25,7 +25,7 @@
         </dependency>
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-parquet_2.11</artifactId>
+            <artifactId>geomesa-convert-all_2.11</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

@@ -53,7 +53,7 @@ class FileSystemDataStore(fs: FileSystem,
   private def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = {
     // TODO: load the partition scheme from the metadata
     // TODO need to figure out stepping for time here...
-    new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 10, sft, "dtg", "geom")
+    new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
   }
 
 }

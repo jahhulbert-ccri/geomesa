@@ -55,7 +55,8 @@ object PartitionOpts {
 
 // TODO remove step?
 class DateScheme(fmt: DateTimeFormatter,
-                 step: ChronoUnit,
+                 stepUnit: ChronoUnit,
+                 step: Int,
                  sft: SimpleFeatureType,
                  partitionAttribute: String)
   extends PartitionScheme {
@@ -75,8 +76,8 @@ class DateScheme(fmt: DateTimeFormatter,
       Seq.empty[String]
     } else {
       val (start, end) = interval.head
-      val count = start.until(end, step)
-      (0 until count.toInt).map { i => start.plus(i, step) }.map { i => fmt.format(i) }
+      val count = start.until(end, stepUnit)
+      (0 until count.toInt).map { i => start.plus(step, stepUnit) }.map { i => fmt.format(i) }
     }
   }
 }
@@ -132,9 +133,7 @@ class Z2Scheme(bitWidth: Int, sft: SimpleFeatureType, geomAttribute: String) ext
     }
 
     val xy = geometries.values.map(GeometryUtils.bounds).head
-
     val ranges = z2.toRanges(xy._1, xy._2, xy._3, xy._4)
-//    val ranges =  Z2SFC.ranges(xy, bitWidth, None)
     val result = ranges
         .flatMap { ir =>
           ir.lower to ir.upper
@@ -145,14 +144,15 @@ class Z2Scheme(bitWidth: Int, sft: SimpleFeatureType, geomAttribute: String) ext
 }
 
 class DateTimeZ2Scheme(fmt: DateTimeFormatter,
-                       step: ChronoUnit,
+                       stepUnit: ChronoUnit,
+                       step: Int,
                        z2BitWidth: Int,
                        sft: SimpleFeatureType,
                        dateTimeAttribute: String,
                        geomAttribute: String) extends PartitionScheme {
 
   private val z2Scheme = new Z2Scheme(z2BitWidth, sft, geomAttribute)
-  private val dateScheme = new DateScheme(fmt, step, sft, dateTimeAttribute)
+  private val dateScheme = new DateScheme(fmt, stepUnit, step, sft, dateTimeAttribute)
 
   override def getPartition(sf: SimpleFeature): Partition = {
     Partition(dateScheme.getPartition(sf).name + "/" + z2Scheme.getPartition(sf).name)
@@ -164,51 +164,6 @@ class DateTimeZ2Scheme(fmt: DateTimeFormatter,
     for { d <- dateParts; z <- z2Parts } yield s"$d/$z"
   }
 }
-
-
-//class DateTimeZ2PartitionScheme(minuteIntervals: Int,
-//                                fmt: DateTimeFormatter,
-//                                bitWidth: Int,
-//                                sft: SimpleFeatureType,
-//                                dateTimeAttribute: String,
-//                                geomAttribute: String) extends PartitionScheme {
-//
-//  private val dtgAttrIndex = sft.indexOf(dateTimeAttribute)
-//  private val geomAttrIndex = sft.indexOf(geomAttribute)
-//  private val z2 = new ZCurve2D(bitWidth/2)
-//  private val digits = math.round(math.log10(math.pow(bitWidth, 2))).toInt
-//
-//  override def getPartition(sf: SimpleFeature): Partition = {
-//    val instant = sf.getAttribute(dtgAttrIndex).asInstanceOf[Date].toInstant.atZone(ZoneOffset.UTC)
-//    val adjusted = instant.withMinute(minuteIntervals*instant.getMinute/minuteIntervals)
-//
-//    val pt = sf.getAttribute(geomAttrIndex).asInstanceOf[Point]
-//    val idx = z2.toIndex(pt.getX, pt.getY)
-//    Partition(String.format(s"${fmt.format(adjusted)}/%0${digits}d", java.lang.Long.valueOf(idx)))
-//  }
-//
-//  override def coveringPartitions(f: Filter): Seq[String] = {
-//    // TODO: deal with more than just a single date range
-//    val interval = FilterHelper.extractIntervals(f, dateTimeAttribute).values
-//      .map { case (s,e) => (
-//        Instant.ofEpochMilli(s.getMillis).atZone(ZoneOffset.UTC),
-//        Instant.ofEpochMilli(e.getMillis).atZone(ZoneOffset.UTC)) }
-//    if (interval.isEmpty) {
-//      Seq.empty[String]
-//    } else {
-//      val (start, end) = interval.head
-//      start.withMinute(minuteIntervals * (start.getMinute / minuteIntervals))
-//      end.withMinute(minuteIntervals * (end.getMinute / minuteIntervals))
-//      val count = start.until(end, ChronoUnit.MINUTES) / minuteIntervals
-//      (0 until count.toInt).map { i => start.plusMinutes(i * minuteIntervals) }.map { i => fmt.format(i) }
-//    }
-//
-//    val z2Ranges = Z2Index.getRanges(sft, f, new ExplainLogging)
-//
-//
-//
-//  }
-//}
 
 class HierarchicalPartitionScheme(partitionSchemes: Seq[PartitionScheme], sep: String) extends PartitionScheme {
   override def getPartition(sf: SimpleFeature): Partition =

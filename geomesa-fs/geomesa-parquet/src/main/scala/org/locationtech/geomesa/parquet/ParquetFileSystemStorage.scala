@@ -26,6 +26,7 @@ import scala.util.{Failure, Success, Try}
 
 class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
   override def canProcess(params: util.Map[String, io.Serializable]): Boolean = {
+    params.containsKey("fs.path") &&
     params.containsKey("fs.encoding") && params.get("fs.encoding").asInstanceOf[String].equals("parquet")
   }
 
