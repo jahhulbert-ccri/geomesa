@@ -20,6 +20,8 @@ import org.specs2.specification.AllExpectations
 @RunWith(classOf[JUnitRunner])
 class FilterConverterTest extends Specification with AllExpectations {
 
+  sequential
+
   "FilterConverter" should {
     val ff = CommonFactoryFinder.getFilterFactory2
     val sft = SimpleFeatureTypes.createType("test", "name:String,age:Int,dtg:Date,*geom:Point:srid=4326")
@@ -43,6 +45,27 @@ class FilterConverterTest extends Specification with AllExpectations {
 
       and.getRight.asInstanceOf[Operators.LtEq[java.lang.Long]].getColumn.getColumnPath.toDotString mustEqual "dtg"
       and.getRight.asInstanceOf[Operators.LtEq[java.lang.Long]].getValue mustEqual ISODateTimeFormat.dateTime().parseDateTime("2017-01-05T00:00:00.000Z").getMillis
+    }
+
+    "ignore dtg column for now for filter augmentation" >> {
+      val f = ff.between(ff.property("dtg"), ff.literal("2017-01-01T00:00:00.000Z"), ff.literal("2017-01-05T00:00:00.000Z"))
+      val res = conv.convert(f)
+      res._2 mustEqual f
+    }
+
+    "augment property equals column" >> {
+      import scala.collection.JavaConversions._
+      val f = ff.and(List[org.opengis.filter.Filter](
+        ff.greaterOrEqual(ff.property("dtg"), ff.literal("2017-01-01T00:00:00.000Z")),
+        ff.lessOrEqual(ff.property("dtg"), ff.literal("2017-01-05T00:00:00.000Z")),
+        ff.equals(ff.property("name"), ff.literal("foo"))))
+      val res = conv.convert(f)
+      val expectedAug = ff.and(
+        List[org.opengis.filter.Filter](
+          ff.greaterOrEqual(ff.property("dtg"), ff.literal("2017-01-01T00:00:00.000Z")),
+          ff.lessOrEqual(ff.property("dtg"), ff.literal("2017-01-05T00:00:00.000Z")),
+          org.opengis.filter.Filter.INCLUDE))
+      res._2 mustEqual expectedAug
     }
   }
 }

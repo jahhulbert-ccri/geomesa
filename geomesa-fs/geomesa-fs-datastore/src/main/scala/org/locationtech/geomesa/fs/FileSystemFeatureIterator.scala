@@ -58,6 +58,9 @@ class ThreadedReader(readers: Seq[FileSystemPartitionIterator])
   // because Parquet is also threading the reads underneath i think. using prod/cons pattern was
   // about 30% faster but increasing beyond 1 thread slowed things down. This could be due to the
   // cost of serializing simple features though. need to investigate more.
+  //
+  // However, if you are doing lots of filtering it appears that bumping the threads up high
+  // can be very useful. Seems possibly numcores/2 might is a good setting (which is a standard idea)
   private val numThreads = Option(System.getProperty("geomesa.fs.threadedreader.threads")).getOrElse("1").toInt
   logger.info(s"Using $numThreads")
   private val es = Executors.newFixedThreadPool(numThreads)

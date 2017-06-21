@@ -29,6 +29,8 @@ class FilterConverter(sft: SimpleFeatureType) {
   protected val dtgAttrOpt: Option[String] = sft.getDtgField
 
   /**
+    * Convert a geotools filter into a parquet filter and new partial geotools filter
+    * to apply to parquet files for filtering
     *
     * @param f
     * @return a tuple representing the parquet filter and a modified geotools filter
@@ -36,10 +38,7 @@ class FilterConverter(sft: SimpleFeatureType) {
     *         be fully covered by the parquet filter
     */
   def convert(f: org.opengis.filter.Filter): (Option[FilterPredicate], org.opengis.filter.Filter) = {
-    val filters = List(
-      geoFilter(f),
-      dtgFilter(f),
-      attrFilter(f)).flatten
+    val filters = Seq(geoFilter(f), dtgFilter(f), attrFilter(f)).flatten
     if (filters.nonEmpty) {
       (Some(filters.reduceLeft(FilterApi.and)), augment(f))
     } else {
@@ -60,6 +59,8 @@ class FilterConverter(sft: SimpleFeatureType) {
       case binop: org.opengis.filter.BinaryComparisonOperator =>
         // These are all handled by the parquet attribute filters (I hope)
         binop match {
+          case _ if binop.getExpression1.asInstanceOf[PropertyName].getPropertyName == dtgAttrOpt.getOrElse("dtg") =>
+            f
           case _ @(_: org.opengis.filter.PropertyIsEqualTo |
                    _: org.opengis.filter.PropertyIsNotEqualTo |
                    _: org.opengis.filter.PropertyIsLessThan |
@@ -117,15 +118,19 @@ class FilterConverter(sft: SimpleFeatureType) {
     gtFilter match {
 
       case and: org.opengis.filter.And =>
-        Option(and.getChildren.flatMap(attrFilter).reduceLeft(FilterApi.and))
+        val res = and.getChildren.flatMap(attrFilter)
+        if (res.nonEmpty) Option(res.reduceLeft(FilterApi.and)) else None
 
       case or: org.opengis.filter.Or =>
-        Option(or.getChildren.flatMap(attrFilter).reduceLeft(FilterApi.or))
+        val res = or.getChildren.flatMap(attrFilter)
+        if (res.nonEmpty) Option(res.reduceLeft(FilterApi.or)) else None
 
       case binop: org.opengis.filter.BinaryComparisonOperator =>
         val name = binop.getExpression1.asInstanceOf[PropertyName].getPropertyName
         val value = binop.getExpression2.toString
         binop match {
+          case _ if name == dtgAttrOpt.getOrElse("dtg") =>
+            None
           case eq: org.opengis.filter.PropertyIsEqualTo =>
             Option(FilterApi.eq(column(name), convert(name, value)))
           case neq: org.opengis.filter.PropertyIsNotEqualTo =>
@@ -162,7 +167,7 @@ class FilterConverter(sft: SimpleFeatureType) {
   }
 
   // Todo support other things than Binary
-  def convert(name: String, value: AnyRef): Binary = {
+  protected def convert(name: String, value: AnyRef): Binary = {
     val ad = sft.getDescriptor(name)
     val binding = ad.getType.getBinding
     val (objectType, _) = ObjectType.selectType(binding, ad.getUserData)
