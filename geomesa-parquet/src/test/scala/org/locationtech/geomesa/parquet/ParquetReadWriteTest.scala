@@ -112,7 +112,7 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
       val geoFilter = ff.equals(ff.property("name"), ff.literal("first"))
 
       def getFeatures(geoFilter: org.opengis.filter.Filter, tsft: SimpleFeatureType): Seq[SimpleFeature] = {
-        val pFilter = FilterCompat.get(new FilterConverter(tsft).convert(geoFilter).get)
+        val pFilter = FilterCompat.get(new FilterConverter(tsft).convert(geoFilter)._1.get)
 
         val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
           .withFilter(pFilter)

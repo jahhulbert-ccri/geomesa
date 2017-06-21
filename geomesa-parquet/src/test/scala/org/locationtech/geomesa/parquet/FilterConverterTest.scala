@@ -26,7 +26,7 @@ class FilterConverterTest extends Specification with AllExpectations {
     val conv = new FilterConverter(sft)
 
     "convert geo filter to min/max x/y" >> {
-      val pfilter = conv.convert(ff.bbox("geom", -24.0, -25.0, -18.0, -19.0, "EPSG:4326")).get
+      val pfilter = conv.convert(ff.bbox("geom", -24.0, -25.0, -18.0, -19.0, "EPSG:4326"))._1.get
       pfilter must beAnInstanceOf[Operators.And]
       // TODO extract the rest of the AND filters to test
       val last = pfilter.asInstanceOf[Operators.And].getRight.asInstanceOf[Operators.LtEq[java.lang.Double]]
@@ -35,7 +35,7 @@ class FilterConverterTest extends Specification with AllExpectations {
     }
 
     "convert dtg ranges to long ranges" >> {
-      val pfilter = conv.convert(ff.between(ff.property("dtg"), ff.literal("2017-01-01T00:00:00.000Z"), ff.literal("2017-01-05T00:00:00.000Z"))).get
+      val pfilter = conv.convert(ff.between(ff.property("dtg"), ff.literal("2017-01-01T00:00:00.000Z"), ff.literal("2017-01-05T00:00:00.000Z")))._1.get
       pfilter must beAnInstanceOf[Operators.And]
       val and = pfilter.asInstanceOf[Operators.And]
       and.getLeft.asInstanceOf[Operators.GtEq[java.lang.Long]].getColumn.getColumnPath.toDotString mustEqual "dtg"

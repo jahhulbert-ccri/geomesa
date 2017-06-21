@@ -11,6 +11,7 @@ package org.locationtech.geomesa.parquet
 import org.apache.parquet.filter2.predicate.Operators.BinaryColumn
 import org.apache.parquet.filter2.predicate.{FilterApi, FilterPredicate}
 import org.apache.parquet.io.api.Binary
+import org.geotools.factory.CommonFactoryFinder
 import org.locationtech.geomesa.features.serialization.ObjectType
 import org.locationtech.geomesa.filter.FilterHelper
 import org.locationtech.geomesa.filter.FilterHelper.extractGeometries
@@ -27,14 +28,51 @@ class FilterConverter(sft: SimpleFeatureType) {
   protected val geomAttr: String = sft.getGeomField
   protected val dtgAttrOpt: Option[String] = sft.getDtgField
 
-  def convert(f: org.opengis.filter.Filter): Option[FilterPredicate] = {
-    val filters = List(geoFilter(f), dtgFilter(f), attrFilter(f)).flatten
+  /**
+    *
+    * @param f
+    * @return a tuple representing the parquet filter and a modified geotools filter
+    *         to apply for fine grained filtering since some of the predicates may
+    *         be fully covered by the parquet filter
+    */
+  def convert(f: org.opengis.filter.Filter): (Option[FilterPredicate], org.opengis.filter.Filter) = {
+    val filters = List(
+      geoFilter(f),
+      dtgFilter(f),
+      attrFilter(f)).flatten
     if (filters.nonEmpty) {
-      Some(filters.reduceLeft(FilterApi.and))
-    } else{
-      None
+      (Some(filters.reduceLeft(FilterApi.and)), augment(f))
+    } else {
+      (None, f)
     }
   }
+
+  // TODO do this in the single walk
+  private val ff = CommonFactoryFinder.getFilterFactory2
+  def augment(f: org.opengis.filter.Filter): org.opengis.filter.Filter = {
+    f match {
+      case and: org.opengis.filter.And =>
+        ff.and(and.getChildren.map(augment))
+
+      case or: org.opengis.filter.Or =>
+        ff.or(or.getChildren.map(augment))
+
+      case binop: org.opengis.filter.BinaryComparisonOperator =>
+        // These are all handled by the parquet attribute filters (I hope)
+        binop match {
+          case _ @(_: org.opengis.filter.PropertyIsEqualTo |
+                   _: org.opengis.filter.PropertyIsNotEqualTo |
+                   _: org.opengis.filter.PropertyIsLessThan |
+                   _: org.opengis.filter.PropertyIsLessThanOrEqualTo |
+                   _: org.opengis.filter.PropertyIsGreaterThan |
+                   _: org.opengis.filter.PropertyIsGreaterThanOrEqualTo) =>
+            org.opengis.filter.Filter.INCLUDE
+          case _ => f
+        }
+      case _ => f
+    }
+  }
+
 
   protected def dtgFilter(f: org.opengis.filter.Filter): Option[FilterPredicate] = {
     dtgAttrOpt.map { dtgAttr =>
