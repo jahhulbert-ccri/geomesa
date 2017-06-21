@@ -61,14 +61,19 @@ class ParquetFSTest extends Specification with AllExpectations {
       writer.close()
       writer.close()
 
-      val res3 = fsStorage.getReader(new Query("test", ff.equals(ff.property("name"), ff.literal("third"))), "1").toList
-      res3.size mustEqual 1
-      res3.head.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
+      val reader3 = fsStorage.getPartitionReader(new Query("test", ff.equals(ff.property("name"), ff.literal("third"))), "1")
+      val features3 = reader3.toList
+      features3.size mustEqual 1
+      features3.head.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
+      reader3.close()
 
-      val res1 = fsStorage.getReader(new Query("test", ff.equals(ff.property("name"), ff.literal("first"))), "1").toList
-      res1.size mustEqual 1
-      res1.head.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263
+      val reader1 = fsStorage.getPartitionReader(new Query("test", ff.equals(ff.property("name"), ff.literal("first"))), "1")
+      val features1 = reader1.toList
+      features1.size mustEqual 1
+      features1.head.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263
+      reader1.close()
 
+      success
     }
 
     step {

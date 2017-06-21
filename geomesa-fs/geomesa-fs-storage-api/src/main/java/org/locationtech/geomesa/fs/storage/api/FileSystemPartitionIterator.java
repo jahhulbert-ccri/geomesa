@@ -8,21 +8,11 @@
 
 package org.locationtech.geomesa.fs.storage.api;
 
-import org.geotools.data.Query;
+
 import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
 
 import java.util.Iterator;
-import java.util.List;
 
-public interface FileSystemStorage {
-    List<SimpleFeatureType> listFeatureTypes();
-    SimpleFeatureType getFeatureType(String name);
-
-    void createNewFeatureType(SimpleFeatureType sft);
-
-    List<String> listPartitions(String typeName);
-    FileSystemPartitionIterator getPartitionReader(Query q, String partition);
-
-    FileSystemWriter getWriter(String typeName, String partition);
+public interface FileSystemPartitionIterator extends Iterator<SimpleFeature>, AutoCloseable {
+    String getPartition();
 }

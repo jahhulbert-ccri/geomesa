@@ -20,7 +20,7 @@ class SimpleFeatureWriteSupport(sft: SimpleFeatureType) extends WriteSupport[Sim
   private val messageType = SimpleFeatureParquetSchema(sft)
   private var consumer: RecordConsumer = _
   private val writers = SimpleFeatureParquetSchema.buildAttributeWriters(sft)
-  private val idIndex = sft.getAttributeCount // put the ID at the end of the record
+  private val idIndex = sft.getAttributeCount // put the ID at the end of the record ? Why?
 
   override def init(configuration: Configuration): WriteContext = {
     new WriteContext(messageType, Maps.newHashMap())

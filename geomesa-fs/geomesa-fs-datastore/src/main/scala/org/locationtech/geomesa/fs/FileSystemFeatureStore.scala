@@ -34,9 +34,9 @@ class FileSystemFeatureStore(entry: ContentEntry,
   override def getWriterInternal(query: Query, flags: Int): FeatureWriter[SimpleFeatureType, SimpleFeature] = {
     require(flags != 0, "no write flags set")
     require((flags | WRITER_ADD) == WRITER_ADD, "Only append supported")
+
     new FeatureWriter[SimpleFeatureType, SimpleFeature] {
       private val typeName = query.getTypeName
-      // TODO: figure out flushCount
       private val rl = new RemovalListener[String, FileSystemWriter] {
         override def onRemoval(removalNotification: RemovalNotification[String, FileSystemWriter]): Unit = {
           val writer = removalNotification.getValue
@@ -53,7 +53,9 @@ class FileSystemFeatureStore(entry: ContentEntry,
           .build[String, FileSystemWriter](loader)
 
       private val sft = _sft
-      private val flushCount = 100
+
+      // TODO: figure out flushCount
+      private val flushCount = 1000
       private val featureIds = new AtomicLong(0)
       private var count = 0L
       private var feature: SimpleFeature = _
@@ -90,7 +92,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
   override def buildFeatureType(): SimpleFeatureType = _sft
   override def getCountInternal(query: Query): Int = ???
   override def getReaderInternal(query: Query): FeatureReader[SimpleFeatureType, SimpleFeature] = {
-    // the type name can sometimes be empty such as Query.ALL
+    // TODO the type name can sometimes be empty such as Query.ALL
     query.setTypeName(_sft.getTypeName)
     new DelegateSimpleFeatureReader(_sft,
       new DelegateSimpleFeatureIterator(new FileSystemFeatureIterator(fs, partitionScheme, _sft, query, fileSystemStorage)))

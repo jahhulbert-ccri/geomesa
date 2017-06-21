@@ -11,13 +11,14 @@ package org.locationtech.geomesa.parquet
 
 import java.{io, util}
 
-import com.google.common.collect.{Iterators, Maps}
+import com.google.common.collect.Maps
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.hadoop.ParquetReader
 import org.geotools.data.Query
-import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemStorageFactory, FileSystemWriter}
+import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, FileSystemStorage, FileSystemStorageFactory, FileSystemWriter}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
@@ -39,7 +40,7 @@ class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
 /**
   * Created by anthony on 5/28/17.
   */
-class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemStorage {
+class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemStorage with LazyLogging {
   private val featureTypes = {
     val files = fs.listStatus(root)
     val result = Maps.newHashMap[String, SimpleFeatureType]()
@@ -77,11 +78,12 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
     buildPartitionList(new Path(root, typeName), "")
   }
 
-  override def getReader(q: Query, part: String): java.util.Iterator[SimpleFeature] = {
+  // TODO ask the parition manager the geometry is fully covered?
+  override def getPartitionReader(q: Query, partition: String): FileSystemPartitionIterator = {
     val sft = featureTypes.get(q.getTypeName)
-    val path = new Path(root, new Path(q.getTypeName, part))
+    val path = new Path(root, new Path(q.getTypeName, partition))
     if (!fs.exists(path)) {
-      Iterators.emptyIterator[SimpleFeature]()
+      new EmptyFsIterator(partition)
     }
     else {
 
@@ -102,32 +104,13 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
         .withFilter(parquetFilter)
         .build()
 
-      new util.Iterator[SimpleFeature] {
-        var staged: SimpleFeature = _
-
-        override def next(): SimpleFeature = staged
-
-        // Full filtering is applied here
-        override def hasNext: Boolean = {
-          staged = null
-          var cont = true
-          while (staged == null && cont) {
-            val f = reader.read()
-            if (f == null) {
-              cont = false
-            } else if (q.getFilter.evaluate(f)) {
-              staged = f
-            }
-          }
-          staged != null
-        }
-      }
+      new FilteringIterator(partition, reader, q.getFilter)
     }
   }
 
-  override def getWriter(featureType: String, part: String): FileSystemWriter = new FileSystemWriter {
+  override def getWriter(featureType: String, partition: String): FileSystemWriter = new FileSystemWriter {
     private val sft = featureTypes.get(featureType)
-    private val writer = new SimpleFeatureParquetWriter(new Path(root, new Path(featureType, part)), new SimpleFeatureWriteSupport(sft))
+    private val writer = new SimpleFeatureParquetWriter(new Path(root, new Path(featureType, partition)), new SimpleFeatureWriteSupport(sft))
 
     override def write(f: SimpleFeature): Unit = writer.write(f)
 

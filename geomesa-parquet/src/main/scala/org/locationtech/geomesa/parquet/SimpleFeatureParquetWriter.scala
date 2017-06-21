@@ -29,7 +29,4 @@ class SimpleFeatureParquetWriter(path: Path, writeSupport: SimpleFeatureWriteSup
     false,
     ParquetProperties.WriterVersion.PARQUET_2_0,
     new Configuration
-  ) {
-
-
-}
+  ) { }
