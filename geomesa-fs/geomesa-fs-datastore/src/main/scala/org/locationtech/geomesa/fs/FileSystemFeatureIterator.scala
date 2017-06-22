@@ -14,7 +14,7 @@ import java.util.concurrent.{CountDownLatch, Executors, LinkedBlockingQueue, Tim
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.FileSystem
 import org.geotools.data.Query
-import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, FileSystemStorage}
+import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, FileSystemStorage, Partition, PartitionScheme}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 class FileSystemFeatureIterator(fs: FileSystem,
@@ -25,17 +25,17 @@ class FileSystemFeatureIterator(fs: FileSystem,
   // TODO: don't list partitions as there could be too many
   import scala.collection.JavaConversions._
 
-  private val partitions: Seq[String] = {
-      // Get the partitions from the partition scheme
+  private val partitions: Seq[Partition] = {
+    // Get the partitions from the partition scheme
     // if the result is empty, then scan all partitions
     // TODO: can we short-circuit if the query is outside the bounds
-    val res = partitionScheme.coveringPartitions(q.getFilter)
+    val coveringPartitions = partitionScheme.getConveringPartitions(q.getFilter)
     val storagePartitions = storage.listPartitions(sft.getTypeName)
-    if (res.isEmpty) {
+    if (coveringPartitions.isEmpty) {
       storagePartitions
     } else {
       // TODO: for now we intersect the two to find the real files and not waste too much time
-      res.intersect(storagePartitions)
+      coveringPartitions.intersect(storagePartitions)
     }
   }
 

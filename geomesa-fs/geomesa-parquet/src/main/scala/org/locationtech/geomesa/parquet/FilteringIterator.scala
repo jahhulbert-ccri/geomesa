@@ -8,9 +8,10 @@
 
 package org.locationtech.geomesa.parquet
 
+import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.hadoop.ParquetReader
-import org.locationtech.geomesa.fs.storage.api.FileSystemPartitionIterator
-import org.opengis.feature.simple.SimpleFeature
+import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, Partition}
+import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 /**
   * Created by ahulbert on 6/21/17.
@@ -39,8 +40,55 @@ class FilteringIterator(partition: String,
     staged != null
   }
 
-  override def getPartition: String = partition
+  override def getPartition: Partition = partition
 }
+
+
+class FilteringParquetPartitionIterator(partition: Partition,
+                                        sft: SimpleFeatureType,
+                                        query: org.geotools.data.Query) {
+  import org.locationtech.geomesa.index.conf.QueryHints._
+  private val transformSft = query.getHints.getTransformSchema.getOrElse(sft)
+
+  val support = new SimpleFeatureReadSupport(transformSft)
+  // TODO: push down predicates and partition pruning
+  // TODO ensure that transforms are pushed to the ColumnIO in parquet.
+  // TODO: Push down full filter that can't be managed
+  val fc = new FilterConverter(transformSft).convert(q.getFilter)
+  val parquetFilter =
+    fc._1
+      .map(FilterCompat.get)
+      .getOrElse(FilterCompat.NOOP)
+
+  logger.info(s"Parquet filter: $parquetFilter and modified gt filter ${fc._2}")
+
+  val reader = ParquetReader.builder[SimpleFeature](support, path)
+    .withFilter(parquetFilter)
+    .build()
+}
+
+class FilteringParquetIterator(reader: ParquetReader[SimpleFeature],
+                               gtFilter: org.opengis.filter.Filter) extends Iterator[SimpleFeature] {
+  private var staged: SimpleFeature = _
+
+  override def next(): SimpleFeature = staged
+
+  override def hasNext: Boolean = {
+    staged = null
+    var cont = true
+    while (staged == null && cont) {
+      val f = reader.read()
+      if (f == null) {
+        cont = false
+      } else if (gtFilter.evaluate(f)) {
+        staged = f
+      }
+    }
+    staged != null
+  }
+
+}
+
 
 class EmptyFsIterator(partition: String) extends FileSystemPartitionIterator {
   override def close(): Unit = {}

@@ -16,29 +16,11 @@ import java.util.Date
 import com.vividsolutions.jts.geom.{Geometry, Point}
 import org.locationtech.geomesa.filter.FilterHelper.extractGeometries
 import org.locationtech.geomesa.filter.{FilterHelper, FilterValues}
+import org.locationtech.geomesa.fs.storage.api.{Partition, PartitionScheme}
 import org.locationtech.geomesa.utils.geotools.{GeometryUtils, WholeWorldPolygon}
 import org.locationtech.sfcurve.zorder.ZCurve2D
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.opengis.filter.Filter
-
-case class Partition(name: String)
-
-trait PartitionScheme {
-  /**
-    * Return the partition in which a SimpleFeature should be stored
-    * @param sf
-    * @return
-    */
-  def getPartition(sf: SimpleFeature): Partition
-
-  /**
-    * Return a list of partitions that the system needs to query
-    * in order to satisfy a filter predicate
-    * @param f
-    * @return
-    */
-  def coveringPartitions(f: Filter): Seq[String]
-}
 
 object PartitionOpts {
   val DateTimeFormatOpt = "datetime-format"

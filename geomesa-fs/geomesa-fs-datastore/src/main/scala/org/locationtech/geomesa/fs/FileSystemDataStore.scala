@@ -20,7 +20,7 @@ import org.geotools.data.DataAccessFactory.Param
 import org.geotools.data.store.{ContentDataStore, ContentEntry, ContentFeatureSource}
 import org.geotools.data.{DataAccessFactory, DataStore, DataStoreFactorySpi, Query}
 import org.geotools.feature.NameImpl
-import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemStorageFactory}
+import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemStorageFactory, PartitionScheme}
 import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.SimpleFeatureType
 

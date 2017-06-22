@@ -17,7 +17,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.geotools.data.Query
 import org.locationtech.geomesa.convert.{SimpleFeatureConverter, SimpleFeatureConverters}
-import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, FileSystemStorage, FileSystemStorageFactory, FileSystemWriter}
+import org.locationtech.geomesa.fs.storage.api._
 import org.locationtech.geomesa.fs.{DateScheme, PartitionScheme}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypeLoader
 import org.opengis.feature.simple.SimpleFeatureType

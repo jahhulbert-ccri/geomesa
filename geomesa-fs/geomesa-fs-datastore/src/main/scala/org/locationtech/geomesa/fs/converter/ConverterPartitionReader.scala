@@ -10,21 +10,32 @@ package org.locationtech.geomesa.fs.converter
 
 import java.io.{File, FileInputStream}
 
-import org.apache.hadoop.fs.Path
+import com.typesafe.scalalogging.LazyLogging
 import org.locationtech.geomesa.convert.SimpleFeatureConverter
-import org.locationtech.geomesa.fs.storage.api.FileSystemPartitionIterator
+import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, Partition}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 
 // TODO partition should include root
-class ConverterPartitionReader(root: Path,
-                                partition: String,
-                                 sft: SimpleFeatureType,
-                                 converter: SimpleFeatureConverter[_],
-                                 gtFilter: org.opengis.filter.Filter) extends FileSystemPartitionIterator {
+class ConverterPartitionReader(partition: Partition,
+                               sft: SimpleFeatureType,
+                               converter: SimpleFeatureConverter[_],
+                               gtFilter: org.opengis.filter.Filter) extends FileSystemPartitionIterator with LazyLogging {
 
-  private val fis = new FileInputStream(new File(new Path(root, partition).toString))
-  private val iter = converter.process(fis)
+  // TODO evaluate this for leaks closing file handles
+  import scala.collection.JavaConversions._
+  private val iter = partition.getPaths.toIterator.flatMap { uri =>
+    val fis = new FileInputStream(new File(uri))
+    try {
+      converter.process(fis)
+    } catch {
+      case e: Exception =>
+        logger.error(s"Error processing uri ${uri.toString}", e)
+        Iterator.empty[SimpleFeature]
+    } finally {
+      fis.close()
+    }
+  }
 
   private var cur: SimpleFeature = _
 
@@ -40,7 +51,6 @@ class ConverterPartitionReader(root: Path,
   }
 
   override def close(): Unit = {
-    fis.close()
     converter.close()
   }
 
@@ -65,5 +75,5 @@ class ConverterPartitionReader(root: Path,
     cur != null
   }
 
-  override def getPartition: String = partition
+  override def getPartition: Partition = partition
 }

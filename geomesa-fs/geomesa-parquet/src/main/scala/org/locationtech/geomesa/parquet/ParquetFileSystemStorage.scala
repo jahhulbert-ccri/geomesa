@@ -18,7 +18,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.hadoop.ParquetReader
 import org.geotools.data.Query
-import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, FileSystemStorage, FileSystemStorageFactory, FileSystemWriter}
+import org.locationtech.geomesa.fs.storage.api._
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
@@ -39,7 +39,9 @@ class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
 }
 
 /**
-  * Created by anthony on 5/28/17.
+  *
+  * @param root the root of this file system for a specifid SimpleFeatureType
+  * @param fs
   */
 class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemStorage with LazyLogging {
   private val featureTypes = {
@@ -80,9 +82,12 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
   }
 
   // TODO ask the parition manager the geometry is fully covered?
-  override def getPartitionReader(q: Query, partition: String): FileSystemPartitionIterator = {
+  override def getPartitionReader(q: Query, partition: Partition): FileSystemPartitionIterator = {
     val sft = featureTypes.get(q.getTypeName)
-    val path = new Path(root, new Path(q.getTypeName, partition))
+
+    import scala.collection.JavaConversions._
+    val paths = partition.getPaths.map(p => new Path(this.getFileSystemRoot(q.getTypeName).resolve(p)))
+
     if (!fs.exists(path)) {
       new EmptyFsIterator(partition)
     }
@@ -110,6 +115,8 @@ class ParquetFileSystemStorage(root: Path, fs: FileSystem) extends FileSystemSto
       new FilteringIterator(partition, reader, fc._2)
     }
   }
+
+
 
   override def getWriter(featureType: String, partition: String): FileSystemWriter = new FileSystemWriter {
     private val sft = featureTypes.get(featureType)

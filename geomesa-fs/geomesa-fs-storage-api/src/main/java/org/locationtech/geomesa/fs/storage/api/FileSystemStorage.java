@@ -12,17 +12,20 @@ import org.geotools.data.Query;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 
+import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
 
 public interface FileSystemStorage {
     List<SimpleFeatureType> listFeatureTypes();
-    SimpleFeatureType getFeatureType(String name);
+    SimpleFeatureType getFeatureType(String typeName);
 
     void createNewFeatureType(SimpleFeatureType sft);
 
-    List<String> listPartitions(String typeName);
-    FileSystemPartitionIterator getPartitionReader(Query q, String partition);
+    URI getFileSystemRoot(String typeName);
+
+    List<Partition> listPartitions(String typeName);
+    FileSystemPartitionIterator getPartitionReader(Query q, Partition partition);
 
     FileSystemWriter getWriter(String typeName, String partition);
 }
