@@ -13,6 +13,7 @@ import org.locationtech.geomesa.fs.FileSystemDataStore
 import org.locationtech.geomesa.fs.storage.api.FileSystemStorage
 
 
+
 class ConverterDataStore(fs: FileSystem,
                          root: Path,
                          fileSystemStorage: FileSystemStorage,

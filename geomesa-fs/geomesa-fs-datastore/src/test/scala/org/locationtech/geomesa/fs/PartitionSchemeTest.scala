@@ -37,19 +37,19 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         gf.createPoint(new Coordinate(10, 10))), sft, new FeatureIdImpl("1"))
 
     "partition based on date" >> {
-      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy-MM-dd"), ChronoUnit.DAYS, sft, "dtg")
+      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy-MM-dd"), ChronoUnit.DAYS, 1, sft, "dtg")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017-01-03"
     }
 
     "partition based on date with slash delimiter" >> {
-      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, sft, "dtg")
+      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, 1, sft, "dtg")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017/003/10"
     }
 
     "partition based on date with slash delimiter" >> {
-      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, sft, "dtg")
+      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, 1, sft, "dtg")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017/003/10"
     }
@@ -75,7 +75,7 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         List[AnyRef]("test", Integer.valueOf(10), Date.from(Instant.parse("2017-01-03T10:15:30Z")),
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
-      val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 10, sft, "dtg", "geom")
+      val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 1, 10, sft, "dtg", "geom")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017/003/49"
 
@@ -93,7 +93,7 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         List[AnyRef]("test", Integer.valueOf(10), Date.from(Instant.parse("2017-01-03T10:15:30Z")),
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
-      val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 20, sft, "dtg", "geom")
+      val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 1, 20, sft, "dtg", "geom")
       val Partition(p) = ps.getPartition(sf)
       p must be equalTo "2017/003/196"
 

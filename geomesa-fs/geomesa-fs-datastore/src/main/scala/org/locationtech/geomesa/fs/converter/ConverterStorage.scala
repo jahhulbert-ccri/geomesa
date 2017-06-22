@@ -71,7 +71,7 @@ class ConverterStorage(root: Path,
     throw new UnsupportedOperationException("Cannot append to converter datastore")
 
   override def getPartitionReader(q: Query, partition: String): FileSystemPartitionIterator =
-    new ConverterPartitionReader(partition, sft, converter, q.getFilter)
+    new ConverterPartitionReader(root, partition, sft, converter, q.getFilter)
 
   private def buildPartitionList(path: Path, prefix: String): List[String] = {
     val status = fs.listStatus(path)
@@ -86,6 +86,6 @@ class ConverterStorage(root: Path,
 
   override def listPartitions(typeName: String): util.List[String] = {
     import scala.collection.JavaConversions._
-    buildPartitionList(new Path(root, typeName), "")
+    buildPartitionList(root, "")
   }
 }

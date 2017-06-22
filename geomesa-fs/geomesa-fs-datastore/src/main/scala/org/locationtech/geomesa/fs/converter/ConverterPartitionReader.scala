@@ -8,19 +8,22 @@
 
 package org.locationtech.geomesa.fs.converter
 
-import java.io.FileInputStream
+import java.io.{File, FileInputStream}
 
+import org.apache.hadoop.fs.Path
 import org.locationtech.geomesa.convert.SimpleFeatureConverter
 import org.locationtech.geomesa.fs.storage.api.FileSystemPartitionIterator
-import org.opengis.feature.simple.{SimpleFeatureType, SimpleFeature}
+import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 
-class ConverterPartitionReader(partition: String,
+// TODO partition should include root
+class ConverterPartitionReader(root: Path,
+                                partition: String,
                                  sft: SimpleFeatureType,
                                  converter: SimpleFeatureConverter[_],
                                  gtFilter: org.opengis.filter.Filter) extends FileSystemPartitionIterator {
 
-  private val fis = new FileInputStream(partition)
+  private val fis = new FileInputStream(new File(new Path(root, partition).toString))
   private val iter = converter.process(fis)
 
   private var cur: SimpleFeature = _
