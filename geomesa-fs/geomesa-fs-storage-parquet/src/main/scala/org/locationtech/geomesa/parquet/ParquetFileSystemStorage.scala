@@ -99,7 +99,8 @@ class ParquetFileSystemStorage(root: Path,
   // TODO ask the parition manager the geometry is fully covered?
   override def getPartitionReader(q: Query, partition: Partition): FileSystemPartitionIterator = {
     val sft = featureTypes.get(q.getTypeName)
-    val path = new Path(new Path(root, sft.getTypeName), partition.getPath.toString)
+    // TODO in the future there may be multiple files
+    val path = new Path(new Path(root, sft.getTypeName), partition.getPaths.get(0).toString)
 
     if (!fs.exists(path)) {
       new EmptyFsIterator(partition)
@@ -135,7 +136,8 @@ class ParquetFileSystemStorage(root: Path,
     private val sft = featureTypes.get(featureType)
 
     private val featureRoot = new Path(root, featureType)
-    private val dataPath    = new Path(featureRoot, partition.getPath.toString)
+    // TODO in the future there may be multiple files
+    private val dataPath    = new Path(featureRoot, partition.getPaths.get(0).toString)
     private val writer = new SimpleFeatureParquetWriter(dataPath, new SimpleFeatureWriteSupport(sft))
 
     override def write(f: SimpleFeature): Unit = writer.write(f)

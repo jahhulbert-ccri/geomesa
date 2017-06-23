@@ -8,11 +8,19 @@
 
 package org.locationtech.geomesa.fs.storage.api;
 
-import java.io.IOException;
 import java.net.URI;
 
 /**
- * Abstract class defining a partition. Two partitions are equal if they have the same name.
+ * Abstract class defining a partition. At the moment partitions define
+ * file endpoints via a subclass that stores data in the leaf nodes of
+ * a tree defined by a PartitionSchema
+ *
+ * In the future a partition will be able to either store data on leaf
+ * nodes or store multiple files in the leaf node. Storing multiple files
+ * means that we will likely need to do some sort of compaction of files
+ * or provide a command to do so.
+ *
+ * Two partitions are equal if they have the same name.
  */
 abstract public class Partition {
     protected final String name;
@@ -26,7 +34,7 @@ abstract public class Partition {
     }
 
     // TODO this will likely be a list of URIs in the future for non-leaf partition strategies
-    abstract public URI getPath();
+    abstract public java.util.List<URI> getPaths();
 
     @Override
     public boolean equals(Object o) {
