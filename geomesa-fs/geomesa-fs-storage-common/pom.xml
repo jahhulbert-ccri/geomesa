@@ -9,8 +9,8 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>geomesa-fs-datastore_2.11</artifactId>
-    <name>GeoMesa FileSystem DataStore</name>
+    <artifactId>geomesa-fs-storage-common_2.11</artifactId>
+    <name>GeoMesa FileSystem Storage Common</name>
 
     <dependencies>
         <dependency>
@@ -21,16 +21,6 @@
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
             <artifactId>geomesa-fs-storage-api_2.11</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-fs-storage-common_2.11</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-       <dependency>
-            <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-convert-all_2.11</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -74,7 +64,7 @@
         </dependency>
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-fs-storage-parquet_2.11</artifactId>
+            <artifactId>geomesa-parquet_2.11</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

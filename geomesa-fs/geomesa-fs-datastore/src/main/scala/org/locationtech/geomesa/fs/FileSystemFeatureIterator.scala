@@ -29,7 +29,7 @@ class FileSystemFeatureIterator(fs: FileSystem,
     // Get the partitions from the partition scheme
     // if the result is empty, then scan all partitions
     // TODO: can we short-circuit if the query is outside the bounds
-    val coveringPartitions = partitionScheme.getConveringPartitions(q.getFilter)
+    val coveringPartitions = partitionScheme.getCoveringPartitions(q.getFilter)
     val storagePartitions = storage.listPartitions(sft.getTypeName)
     if (coveringPartitions.isEmpty) {
       storagePartitions
@@ -38,12 +38,6 @@ class FileSystemFeatureIterator(fs: FileSystem,
       coveringPartitions.intersect(storagePartitions)
     }
   }
-
-//   private val readers = partitions.map(storage.getPartitionReader(q,_))
-//   private val internal = readers.flatten.iterator
-//  override def hasNext: Boolean = internal.hasNext
-//  override def next(): SimpleFeature = internal.next()
-//  override def close(): Unit = readers.foreach(_.close())
 
   private val threadedReader = new ThreadedReader(partitions.map(storage.getPartitionReader(q,_)))
   override def hasNext: Boolean = threadedReader.hasNext
@@ -82,6 +76,7 @@ class ThreadedReader(readers: Seq[FileSystemPartitionIterator])
             }
           } catch {
             case e: Throwable =>
+              e.printStackTrace()
               logger.error(s"Error in reader for partition ${reader.getPartition}: ${e.getMessage}", e)
           } finally {
             latch.countDown()

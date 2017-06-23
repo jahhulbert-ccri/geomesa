@@ -20,11 +20,16 @@ public interface FileSystemStorage {
     List<SimpleFeatureType> listFeatureTypes();
     SimpleFeatureType getFeatureType(String typeName);
 
-    void createNewFeatureType(SimpleFeatureType sft);
+    void createNewFeatureType(SimpleFeatureType sft, PartitionScheme scheme);
+    PartitionScheme getPartitionScheme(SimpleFeatureType sft);
 
     URI getFileSystemRoot(String typeName);
 
     List<Partition> listPartitions(String typeName);
+
+    // TODO need to figure out partition vs path for readers and writers
+    // to handle having partition schemes that store a single file at a node
+    // or multiple files.
     FileSystemPartitionIterator getPartitionReader(Query q, Partition partition);
 
     FileSystemWriter getWriter(String typeName, String partition);

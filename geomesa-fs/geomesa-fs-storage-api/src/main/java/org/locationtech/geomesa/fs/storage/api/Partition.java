@@ -1,10 +1,18 @@
+/***********************************************************************
+ * Copyright (c) 2013-2017 Commonwealth Computer Research, Inc.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Apache License, Version 2.0
+ * which accompanies this distribution and is available at
+ * http://www.opensource.org/licenses/apache2.0.php.
+ ***********************************************************************/
+
 package org.locationtech.geomesa.fs.storage.api;
 
 import java.io.IOException;
 import java.net.URI;
 
 /**
- * Abstarct class defining a partition. Two partitions are equal if they have the same name.
+ * Abstract class defining a partition. Two partitions are equal if they have the same name.
  */
 abstract public class Partition {
     protected final String name;
@@ -17,8 +25,7 @@ abstract public class Partition {
         return name;
     }
 
-    // TODO consider using Path instead of URI? but taht binds us to hadoop
-    abstract public java.util.List<URI> getPaths() throws IOException;
+    abstract public java.util.List<URI> getPaths();
 
     @Override
     public boolean equals(Object o) {

@@ -9,8 +9,6 @@
 package org.locationtech.geomesa.fs
 
 import java.awt.RenderingHints
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.util.ServiceLoader
 import java.{io, util}
 
@@ -20,7 +18,7 @@ import org.geotools.data.DataAccessFactory.Param
 import org.geotools.data.store.{ContentDataStore, ContentEntry, ContentFeatureSource}
 import org.geotools.data.{DataAccessFactory, DataStore, DataStoreFactorySpi, Query}
 import org.geotools.feature.NameImpl
-import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemStorageFactory, PartitionScheme}
+import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemStorageFactory}
 import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.SimpleFeatureType
 
@@ -28,33 +26,32 @@ import scala.collection.JavaConverters._
 
 class FileSystemDataStore(fs: FileSystem,
                           root: Path,
-                          fileSystemStorage: FileSystemStorage,
+                          storage: FileSystemStorage,
                           namespaceStr: String = null) extends ContentDataStore {
   import scala.collection.JavaConversions._
 
   setNamespaceURI(namespaceStr)
 
   override def createTypeNames(): util.List[Name] = {
-    fileSystemStorage.listFeatureTypes().map(name => new NameImpl(getNamespaceURI, name.getTypeName) : Name).asJava
+    storage.listFeatureTypes().map(name => new NameImpl(getNamespaceURI, name.getTypeName) : Name).asJava
   }
 
   override def createFeatureSource(entry: ContentEntry): ContentFeatureSource = {
     val sft =
-      fileSystemStorage.listFeatureTypes().find { f => f.getTypeName.equals(entry.getTypeName) }
+      storage.listFeatureTypes().find { f => f.getTypeName.equals(entry.getTypeName) }
         .getOrElse(throw new RuntimeException(s"Could not find feature type ${entry.getTypeName}"))
-    val scheme = getPartitionScheme(sft)
-    new FileSystemFeatureStore(entry, Query.ALL, scheme, fs, fileSystemStorage)
+    new FileSystemFeatureStore(entry, Query.ALL, fs, storage)
   }
 
-  override def createSchema(featureType: SimpleFeatureType): Unit = {
-    fileSystemStorage.createNewFeatureType(featureType)
+  override def createSchema(sft: SimpleFeatureType): Unit = {
+    storage.createNewFeatureType(sft, storage.getPartitionScheme(sft))
   }
 
-  private def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = {
-    // TODO: load the partition scheme from the metadata
-    // TODO need to figure out stepping for time here...
-    new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
-  }
+//  private def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = {
+//    // TODO: load the partition scheme from the metadata
+//    // TODO need to figure out stepping for time here...
+//    new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
+//  }
 
 }
 

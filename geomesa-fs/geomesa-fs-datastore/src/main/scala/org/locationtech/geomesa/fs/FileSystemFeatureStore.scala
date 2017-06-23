@@ -18,7 +18,7 @@ import org.geotools.data.{FeatureReader, FeatureWriter, Query}
 import org.geotools.feature.collection.DelegateSimpleFeatureIterator
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.locationtech.geomesa.features.ScalaSimpleFeature
-import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemWriter}
+import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemWriter, PartitionScheme}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 /**
@@ -26,10 +26,9 @@ import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
   */
 class FileSystemFeatureStore(entry: ContentEntry,
                              query: Query,
-                             partitionScheme: PartitionScheme,
                              fs: FileSystem,
-                             fileSystemStorage: FileSystemStorage) extends ContentFeatureStore(entry, query) {
-  private val _sft = fileSystemStorage.getFeatureType(entry.getTypeName)
+                             storage: FileSystemStorage) extends ContentFeatureStore(entry, query) {
+  private val _sft = storage.getFeatureType(entry.getTypeName)
 
   override def getWriterInternal(query: Query, flags: Int): FeatureWriter[SimpleFeatureType, SimpleFeature] = {
     require(flags != 0, "no write flags set")
@@ -45,7 +44,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
         }
       }
       private val loader = new CacheLoader[String, FileSystemWriter] {
-        override def load(k: String): FileSystemWriter = fileSystemStorage.getWriter(typeName, k)
+        override def load(k: String): FileSystemWriter = storage.getWriter(typeName, k)
       }
       private val writers =
         CacheBuilder.newBuilder()
@@ -70,7 +69,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
       }
 
       override def write(): Unit = {
-        val writer = writers.get(partitionScheme.getPartition(feature).name)
+        val writer = writers.get(storage.getPartitionScheme(_sft).getPartition(feature).getName)
         writer.write(feature)
         feature = null
         count += 1
@@ -95,7 +94,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
     // TODO the type name can sometimes be empty such as Query.ALL
     query.setTypeName(_sft.getTypeName)
     new DelegateSimpleFeatureReader(_sft,
-      new DelegateSimpleFeatureIterator(new FileSystemFeatureIterator(fs, partitionScheme, _sft, query, fileSystemStorage)))
+      new DelegateSimpleFeatureIterator(new FileSystemFeatureIterator(fs, storage.getPartitionScheme(_sft), _sft, query, storage)))
   }
 
 
