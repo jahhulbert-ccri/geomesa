@@ -39,29 +39,18 @@ class PartitionSchemeTest extends Specification with AllExpectations {
 
     "partition based on date" >> {
       val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy-MM-dd"), ChronoUnit.DAYS, 1, sft, "dtg")
-      ps.getPartition(sf).getName mustEqual "2017-01-03"
+      ps.getPartitionName(sf) mustEqual "2017-01-03"
     }
 
     "partition based on date with slash delimiter" >> {
       val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, 1, sft, "dtg")
-      ps.getPartition(sf).getName mustEqual "2017/003/10"
+      ps.getPartitionName(sf) mustEqual "2017/003/10"
     }
 
     "partition based on date with slash delimiter" >> {
       val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, 1, sft, "dtg")
-      ps.getPartition(sf).getName mustEqual "2017/003/10"
+      ps.getPartitionName(sf) mustEqual "2017/003/10"
     }
-
-//    "intra-hour partition appropriately" >> {
-//      val ps = new IntraHourScheme(15, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), sft, "dtg")
-//      ps.getPartition(sf).getName mustEqual "2017/003/1015"
-//    }
-//
-//    "intra-hour 5 minute partitions" >> {
-//      val ps = new IntraHourScheme(5, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), sft, "dtg")
-//      val Partition(p) = ps.getPartition(sf)
-//      p must be equalTo "2017/003/1015"
-//    }
 
     "10 bit datetime z2 partition" >> {
       val sf = new SimpleFeatureImpl(
@@ -73,8 +62,8 @@ class PartitionSchemeTest extends Specification with AllExpectations {
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
       val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 1, 10, sft, "dtg", "geom")
-      ps.getPartition(sf).getName mustEqual "2017/003/49"
-      ps.getPartition(sf2).getName mustEqual "2017/003/12"
+      ps.getPartitionName(sf) mustEqual "2017/003/49"
+      ps.getPartitionName(sf2) mustEqual "2017/003/12"
 
     }
 
@@ -88,8 +77,8 @@ class PartitionSchemeTest extends Specification with AllExpectations {
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
       val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 1, 20, sft, "dtg", "geom")
-      ps.getPartition(sf).getName mustEqual "2017/003/196"
-      ps.getPartition(sf2).getName mustEqual "2017/003/051"
+      ps.getPartitionName(sf) mustEqual "2017/003/196"
+      ps.getPartitionName(sf2) mustEqual "2017/003/051"
     }
 
   }

@@ -20,8 +20,9 @@ import org.geotools.factory.CommonFactoryFinder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.features.ScalaSimpleFeature
-import org.locationtech.geomesa.fs.storage.common.{DateTimeZ2Scheme, LeafStoragePartition}
+import org.locationtech.geomesa.fs.storage.common.DateTimeZ2Scheme
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
+import org.opengis.feature.simple.SimpleFeature
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import org.specs2.specification.AllExpectations
@@ -55,23 +56,29 @@ class ParquetFSTest extends Specification with AllExpectations {
       fsStorage.listFeatureTypes().size mustEqual 1
       fsStorage.listFeatureTypes().head.getTypeName mustEqual "test"
 
-      val writer = fsStorage.getWriter("test", "1")
-      val sf = new ScalaSimpleFeature("1", sft, Array("first", Integer.valueOf(100), new java.util.Date, gf.createPoint(new Coordinate(25.236263, 27.436734))))
+
+      val sf1 = new ScalaSimpleFeature("1", sft, Array("first", Integer.valueOf(100), new java.util.Date, gf.createPoint(new Coordinate(25.236263, 27.436734))))
       val sf2 = new ScalaSimpleFeature("2", sft, Array(null, Integer.valueOf(200), new java.util.Date, gf.createPoint(new Coordinate(67.2363, 55.236))))
       val sf3 = new ScalaSimpleFeature("3", sft, Array("third", Integer.valueOf(300), new java.util.Date, gf.createPoint(new Coordinate(73.0, 73.0))))
-      writer.write(sf)
-      writer.write(sf2)
-      writer.write(sf3)
-      writer.close()
-      writer.close()
 
-      val reader3 = fsStorage.getPartitionReader(new Query("test", ff.equals(ff.property("name"), ff.literal("third"))), new LeafStoragePartition("1"))
+      val partitionSchema = fsStorage.getPartitionScheme(sft)
+      val partitions = List(sf1, sf2, sf3).map(partitionSchema.getPartitionName)
+      List[SimpleFeature](sf1, sf2, sf3)
+        .zip(partitions)
+        .groupBy(_._2)
+        .foreach { case (partition, features) =>
+          val writer = fsStorage.getWriter(sft.getTypeName, fsStorage.getPartition(partition))
+          features.map(_._1).foreach(writer.write)
+          writer.close()
+        }
+
+      val reader3 = fsStorage.getPartitionReader(new Query("test", ff.equals(ff.property("name"), ff.literal("third"))), fsStorage.getPartition(partitions(2)))
       val features3 = reader3.toList
       features3.size mustEqual 1
       features3.head.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
       reader3.close()
 
-      val reader1 = fsStorage.getPartitionReader(new Query("test", ff.equals(ff.property("name"), ff.literal("first"))), new LeafStoragePartition("1"))
+      val reader1 = fsStorage.getPartitionReader(new Query("test", ff.equals(ff.property("name"), ff.literal("first"))), fsStorage.getPartition(partitions(0)))
       val features1 = reader1.toList
       features1.size mustEqual 1
       features1.head.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263

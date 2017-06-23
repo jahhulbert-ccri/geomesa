@@ -25,6 +25,7 @@ public interface FileSystemStorage {
 
     URI getFileSystemRoot(String typeName);
 
+    Partition getPartition(String name);
     List<Partition> listPartitions(String typeName);
 
     // TODO need to figure out partition vs path for readers and writers
@@ -32,5 +33,5 @@ public interface FileSystemStorage {
     // or multiple files.
     FileSystemPartitionIterator getPartitionReader(Query q, Partition partition);
 
-    FileSystemWriter getWriter(String typeName, String partition);
+    FileSystemWriter getWriter(String typeName, Partition partition);
 }

@@ -50,6 +50,9 @@ class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
   */
 class ParquetFileSystemStorage(root: Path,
                                fs: FileSystem) extends FileSystemStorage with LazyLogging {
+
+  private val fileExtension = "parquet"
+
   private val featureTypes = {
     val files = fs.listStatus(root)
     val result = Maps.newHashMap[String, SimpleFeatureType]()
@@ -79,7 +82,10 @@ class ParquetFileSystemStorage(root: Path,
         buildPartitionList(f.getPath,  s"$prefix${f.getPath.getName}/", curDepth + 1, maxDepth)
       } else {
         if (f.getPath.getName.equals("schema.sft")) List()
-        else List(s"$prefix${f.getPath.getName}")
+        else {
+          val name = f.getPath.getName.dropRight(fileExtension.length + 1)
+          List(s"$prefix$name")
+        }
       }
     }.toList
   }
@@ -93,7 +99,7 @@ class ParquetFileSystemStorage(root: Path,
   // TODO ask the parition manager the geometry is fully covered?
   override def getPartitionReader(q: Query, partition: Partition): FileSystemPartitionIterator = {
     val sft = featureTypes.get(q.getTypeName)
-    val path = new Path(root + "/" + sft.getTypeName, partition.getName)
+    val path = new Path(new Path(root, sft.getTypeName), partition.getPath.toString)
 
     if (!fs.exists(path)) {
       new EmptyFsIterator(partition)
@@ -125,10 +131,12 @@ class ParquetFileSystemStorage(root: Path,
 
 
 
-  override def getWriter(featureType: String, partition: String): FileSystemWriter = new FileSystemWriter {
+  override def getWriter(featureType: String, partition: Partition): FileSystemWriter = new FileSystemWriter {
     private val sft = featureTypes.get(featureType)
-    private val writer = new SimpleFeatureParquetWriter(new Path(root, new Path(featureType, partition)),
-      new SimpleFeatureWriteSupport(sft))
+
+    private val featureRoot = new Path(root, featureType)
+    private val dataPath    = new Path(featureRoot, partition.getPath.toString)
+    private val writer = new SimpleFeatureParquetWriter(dataPath, new SimpleFeatureWriteSupport(sft))
 
     override def write(f: SimpleFeature): Unit = writer.write(f)
 
@@ -157,4 +165,6 @@ class ParquetFileSystemStorage(root: Path,
     // TODO allow other things
     new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
   }
+
+  override def getPartition(name: String): Partition = new LeafStoragePartition(name, Some(fileExtension))
 }

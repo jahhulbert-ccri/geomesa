@@ -21,7 +21,7 @@ public interface PartitionScheme {
      * @param sf
      * @return
      */
-    Partition getPartition(SimpleFeature sf);
+    String getPartitionName(SimpleFeature sf);
 
     /**
      * Return a list of partitions that the system needs to query
@@ -29,7 +29,7 @@ public interface PartitionScheme {
      * @param f
      * @return
      */
-    java.util.List<Partition> getCoveringPartitions(Filter f);
+    java.util.List<String> getCoveringPartitions(Filter f);
 
     /**
      *

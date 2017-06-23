@@ -17,7 +17,7 @@ import java.net.URI;
 abstract public class Partition {
     protected final String name;
 
-    public Partition(final String name) {
+    protected Partition(final String name) {
         this.name = name;
     }
 
@@ -25,7 +25,8 @@ abstract public class Partition {
         return name;
     }
 
-    abstract public java.util.List<URI> getPaths();
+    // TODO this will likely be a list of URIs in the future for non-leaf partition strategies
+    abstract public URI getPath();
 
     @Override
     public boolean equals(Object o) {

@@ -45,7 +45,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
         }
       }
       private val loader = new CacheLoader[String, FileSystemWriter] {
-        override def load(k: String): FileSystemWriter = storage.getWriter(typeName, k)
+        override def load(k: String): FileSystemWriter = storage.getWriter(typeName, storage.getPartition(k))
       }
       private val writers =
         CacheBuilder.newBuilder()
@@ -70,7 +70,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
       }
 
       override def write(): Unit = {
-        val writer = writers.get(storage.getPartitionScheme(_sft).getPartition(feature).getName)
+        val writer = writers.get(storage.getPartitionScheme(_sft).getPartitionName(feature))
         writer.write(feature)
         feature = null
         count += 1
