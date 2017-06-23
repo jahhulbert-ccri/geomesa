@@ -93,7 +93,7 @@ class ParquetFileSystemStorage(root: Path,
   override def listPartitions(typeName: String): util.List[Partition] = {
     import scala.collection.JavaConversions._
     buildPartitionList(new Path(root, typeName), "", 0,
-      getPartitionScheme(featureTypes(typeName)).maxDepth()).map(new LeafStoragePartition(_, Some("parquet")))
+      getPartitionScheme(featureTypes(typeName)).maxDepth()).map(getPartition)
   }
 
   // TODO ask the parition manager the geometry is fully covered?

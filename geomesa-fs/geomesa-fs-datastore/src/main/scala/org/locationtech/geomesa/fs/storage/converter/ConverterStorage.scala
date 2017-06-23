@@ -106,7 +106,7 @@ class ConverterStorage(root: Path,
 
   override def listPartitions(typeName: String): util.List[Partition] = {
     import scala.collection.JavaConversions._
-    buildPartitionList(root, "", 0).map(new LeafStoragePartition(_))
+    buildPartitionList(root, "", 0).map(getPartition)
   }
 
   override def getFileSystemRoot(typeName: String): URI = root.toUri

@@ -13,6 +13,9 @@ import java.net.URI
 import org.locationtech.geomesa.fs.storage.api.Partition
 
 /**
+  * // TODO make constructor private so folks can't make it themselves
+  * // The datastorage tier should be the only thing that can construct these?
+  *
   * Data is stored in the leaf nodes of the partition strategy
   *
   * @param name
