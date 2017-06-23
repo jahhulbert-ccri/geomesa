@@ -53,12 +53,74 @@ class ConverterDataStoreTest extends Specification {
       feats.size mustEqual 4
     }
 
-    "work with another ds" >> {
+    "work with something else" >> {
       val ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore2").getFile,
         "fs.encoding" -> "converter",
         "fs.options.sft.name" -> "fs-test",   //need to make one
         "fs.options.converter.name" -> "fs-test",
+        "fs.partition-scheme.name" -> "date",
+        "fs.partition-scheme.opts.datetime-format" -> "yyyy/DDD/HH/mm",
+        "fs.partition-scheme.opts.step-unit" -> "MINUTES",
+        "fs.partition-scheme.opts.step" -> "15",
+        "fs.partition-scheme.opts.partition-attribute" -> "dtg",
+        "fs.partition-scheme.opts.leaf-mode" -> "data"
+      ))
+      ds must not beNull
+
+      val types = ds.getTypeNames
+      types.size mustEqual 1
+      types.head mustEqual "fs-test"
+
+      val q = new Query("fs-test", Filter.INCLUDE)
+      val fr = ds.getFeatureReader(q, Transaction.AUTO_COMMIT)
+      val feats = mutable.ListBuffer.empty[SimpleFeature]
+      while (fr.hasNext) {
+        feats += fr.next()
+      }
+      feats.size mustEqual 4
+    }
+
+    "load sft as a string" >> {
+
+      val conf =
+        """
+          |geomesa {
+          |  sfts {
+          |    "fs-test" = {
+          |      attributes = [
+          |        { name = "name",     type = "String",          index = true                              }
+          |        { name = "dtg",      type = "Date",            index = false                             }
+          |        { name = "geom",     type = "Point",           index = true, srid = 4326, default = true }
+          |      ]
+          |    }
+          |  }
+          |  converters {
+          |    "fs-test" {
+          |      type   = "delimited-text",
+          |      format = "CSV",
+          |      options {
+          |        verbose = true
+          |        skip-lines = 0
+          |      },
+          |      id-field = "toString($name)",
+          |      fields = [
+          |        { name = "name",     transform = "$1::string"                  }
+          |        { name = "dtg",      transform = "dateTime($2)"           }
+          |        { name = "geom",     transform = "point($3)"                   }
+          |      ]
+          |    }
+          |
+          |  }
+          |}
+          |
+        """.stripMargin
+
+      val ds = DataStoreFinder.getDataStore(Map(
+        "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore1").getFile,
+        "fs.encoding" -> "converter",
+        "fs.options.sft.conf" -> conf,
+        "fs.options.converter.conf" -> conf,
         "fs.partition-scheme.name" -> "date",
         "fs.partition-scheme.opts.datetime-format" -> "yyyy/DDD/HH/mm",
         "fs.partition-scheme.opts.step-unit" -> "MINUTES",

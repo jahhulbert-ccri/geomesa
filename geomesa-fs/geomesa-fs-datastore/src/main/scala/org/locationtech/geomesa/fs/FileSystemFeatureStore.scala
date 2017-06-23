@@ -18,7 +18,7 @@ import org.geotools.data.{FeatureReader, FeatureWriter, Query}
 import org.geotools.feature.collection.DelegateSimpleFeatureIterator
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.locationtech.geomesa.features.ScalaSimpleFeature
-import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemWriter, PartitionScheme}
+import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemWriter}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 /**
@@ -27,7 +27,8 @@ import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 class FileSystemFeatureStore(entry: ContentEntry,
                              query: Query,
                              fs: FileSystem,
-                             storage: FileSystemStorage) extends ContentFeatureStore(entry, query) {
+                             storage: FileSystemStorage,
+                             readThreads: Int) extends ContentFeatureStore(entry, query) {
   private val _sft = storage.getFeatureType(entry.getTypeName)
 
   override def getWriterInternal(query: Query, flags: Int): FeatureWriter[SimpleFeatureType, SimpleFeature] = {
@@ -94,7 +95,8 @@ class FileSystemFeatureStore(entry: ContentEntry,
     // TODO the type name can sometimes be empty such as Query.ALL
     query.setTypeName(_sft.getTypeName)
     new DelegateSimpleFeatureReader(_sft,
-      new DelegateSimpleFeatureIterator(new FileSystemFeatureIterator(fs, storage.getPartitionScheme(_sft), _sft, query, storage)))
+      new DelegateSimpleFeatureIterator(
+        new FileSystemFeatureIterator(fs, storage.getPartitionScheme(_sft), _sft, query, readThreads, storage)))
   }
 
 

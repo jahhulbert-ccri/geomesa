@@ -21,6 +21,7 @@ class FileSystemFeatureIterator(fs: FileSystem,
                                 partitionScheme: PartitionScheme,
                                 sft: SimpleFeatureType,
                                 q: Query,
+                                readThreads: Int,
                                 storage: FileSystemStorage) extends java.util.Iterator[SimpleFeature] with AutoCloseable {
   // TODO: don't list partitions as there could be too many
   import scala.collection.JavaConversions._
@@ -39,13 +40,14 @@ class FileSystemFeatureIterator(fs: FileSystem,
     }
   }
 
-  private val threadedReader = new ThreadedReader(partitions.map(storage.getPartitionReader(q,_)))
+  private val threadedReader = new ThreadedReader(partitions.map(storage.getPartitionReader(q,_)), readThreads)
   override def hasNext: Boolean = threadedReader.hasNext
   override def next(): SimpleFeature = threadedReader.next()
   override def close(): Unit = threadedReader.close()
 }
 
-class ThreadedReader(readers: Seq[FileSystemPartitionIterator])
+
+class ThreadedReader(readers: Seq[FileSystemPartitionIterator], numThreads: Int)
   extends java.util.Iterator[SimpleFeature] with AutoCloseable with LazyLogging {
 
   // Need to do more tuning here. On a local system 1 thread (so basic producer/consumer) was best
@@ -55,8 +57,6 @@ class ThreadedReader(readers: Seq[FileSystemPartitionIterator])
   //
   // However, if you are doing lots of filtering it appears that bumping the threads up high
   // can be very useful. Seems possibly numcores/2 might is a good setting (which is a standard idea)
-  private val numThreads = Option(System.getProperty("geomesa.fs.threadedreader.threads")).getOrElse("1").toInt
-  logger.info(s"Using $numThreads")
   private val es = Executors.newFixedThreadPool(numThreads)
   private val latch = new CountDownLatch(readers.size)
 

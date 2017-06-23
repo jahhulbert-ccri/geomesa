@@ -27,6 +27,7 @@ import scala.collection.JavaConverters._
 class FileSystemDataStore(fs: FileSystem,
                           root: Path,
                           storage: FileSystemStorage,
+                          readThreads: Int,
                           namespaceStr: String = null) extends ContentDataStore {
   import scala.collection.JavaConversions._
 
@@ -40,18 +41,12 @@ class FileSystemDataStore(fs: FileSystem,
     val sft =
       storage.listFeatureTypes().find { f => f.getTypeName.equals(entry.getTypeName) }
         .getOrElse(throw new RuntimeException(s"Could not find feature type ${entry.getTypeName}"))
-    new FileSystemFeatureStore(entry, Query.ALL, fs, storage)
+    new FileSystemFeatureStore(entry, Query.ALL, fs, storage, readThreads)
   }
 
   override def createSchema(sft: SimpleFeatureType): Unit = {
     storage.createNewFeatureType(sft, storage.getPartitionScheme(sft))
   }
-
-//  private def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = {
-//    // TODO: load the partition scheme from the metadata
-//    // TODO need to figure out stepping for time here...
-//    new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
-//  }
 
 }
 
@@ -66,12 +61,12 @@ class FileSystemDataStoreFactory extends DataStoreFactorySpi {
     // TODO: handle errors
     val storage = storageFactory.iterator().filter(_.canProcess(params)).map(_.build(params)).next()
     val fs = path.getFileSystem(new Configuration())
-    // TODO: thread partitioning info through params
-//    val partitionScheme = new IntraHourPartitionScheme(15, DateTimeFormatter.ofPattern("yyyy/DDD/HHmm"), storage.getSimpleFeatureType, "dtg")
 
     val namespace = Option(NamespaceParam.lookUp(params)).map(_.asInstanceOf[String]).orNull
 
-    new FileSystemDataStore(fs, path, storage, namespace)
+    val readThreads = Option(ReadThreadsParam.lookUp(params)).map(_.asInstanceOf[java.lang.Integer])
+      .getOrElse(ReadThreadsParam.getDefaultValue.asInstanceOf[java.lang.Integer])
+    new FileSystemDataStore(fs, path, storage, readThreads, namespace)
   }
 
   override def createNewDataStore(params: util.Map[String, io.Serializable]): DataStore =
@@ -94,6 +89,12 @@ class FileSystemDataStoreFactory extends DataStoreFactorySpi {
 object FileSystemDataStoreParams {
   val PathParam            = new Param("fs.path", classOf[String], "Root of the filesystem hierarchy", true)
   val EncodingParam        = new Param("fs.encoding", classOf[String], "Encoding of data", true)
-  val NamespaceParam       = new Param("namespace", classOf[String], "Namespace", false)
 
+  val ConverterNameParam   = new Param("fs.options.converter.name", classOf[String], "Converter Name", false)
+  val ConverterConfigParam = new Param("fs.options.converter.conf", classOf[String], "Converter Typesafe Config", false)
+  val SftNameParam         = new Param("fs.options.sft.name", classOf[String], "SimpleFeatureType Name", false)
+  val SftConfigParam       = new Param("fs.options.sft.conf", classOf[String], "SimpleFeatureType Typesafe Config", false)
+
+  val NamespaceParam       = new Param("namespace", classOf[String], "Namespace", false)
+  val ReadThreadsParam     = new Param("read-threads", classOf[java.lang.Integer], "Read Threads", false, 4)
 }

@@ -15,10 +15,11 @@ import java.util
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.geotools.data.Query
-import org.locationtech.geomesa.convert.{SimpleFeatureConverter, SimpleFeatureConverters}
+import org.locationtech.geomesa.convert.{ConfArgs, ConverterConfigResolver, SimpleFeatureConverter, SimpleFeatureConverters}
+import org.locationtech.geomesa.fs.FileSystemDataStoreParams
 import org.locationtech.geomesa.fs.storage.api._
 import org.locationtech.geomesa.fs.storage.common.{LeafStoragePartition, PartitionScheme}
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypeLoader
+import org.locationtech.geomesa.utils.geotools.{SftArgResolver, SftArgs}
 import org.opengis.feature.simple.SimpleFeatureType
 
 
@@ -32,16 +33,28 @@ class ConverterStorageFactory extends FileSystemStorageFactory {
     val path = params.get("fs.path").asInstanceOf[String]
     val root = new Path(path)
 
-    // TODO allow user to pass in the converter and sft as a typesafe config or spec string like nifi
-    val converterName = params.get("fs.options.converter.name").toString
-    val sftName = params.get("fs.options.sft.name").toString
+    val sftArg = Option(FileSystemDataStoreParams.SftConfigParam.lookUp(params))
+      .orElse(Option(FileSystemDataStoreParams.SftNameParam.lookUp(params)))
+      .map(_.asInstanceOf[String])
+      .getOrElse( throw new IllegalArgumentException(s"Must provide sft config or name"))
 
-    val sft = SimpleFeatureTypeLoader.sftForName(sftName).getOrElse({
-      throw new IllegalArgumentException(s"Unable to load sft name $sftName")
-    })
-    val converter = SimpleFeatureConverters.build(sft, converterName)
+    val sft = SftArgResolver.getArg(SftArgs(sftArg, null)) match {
+      case Left(e) => throw e
+      case Right(sftype) => sftype
+    }
 
-    // TODO refactor
+    val convertArg = Option(FileSystemDataStoreParams.ConverterConfigParam.lookUp(params)).
+      orElse(Option(FileSystemDataStoreParams.ConverterNameParam.lookUp(params)))
+      .map(_.asInstanceOf[String])
+      .getOrElse(throw new IllegalArgumentException(s"Must provide either converter config or name"))
+
+    val converterConfig = ConverterConfigResolver.getArg(ConfArgs(convertArg)) match {
+      case Left(e) => throw e
+      case Right(conf) => conf
+    }
+    val converter = SimpleFeatureConverters.build(sft, converterConfig)
+
+    // TODO refactor ?
     val schemeName = params.get("fs.partition-scheme.name").toString
     import scala.collection.JavaConversions._
     val partOpts = params.keySet.filter(_.startsWith("fs.partition-scheme.opts.")).map{opt =>
