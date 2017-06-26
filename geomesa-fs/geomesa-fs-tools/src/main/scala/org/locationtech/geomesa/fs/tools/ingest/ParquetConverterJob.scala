@@ -112,7 +112,6 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     (written(job), failed(job))
   }
 
-
   // TODO probably make a better method for this and extract it to a static utility class
   def sync(src: Path, dest : Path, conf: Configuration): Boolean = {
     logger.info(s"importing from ${src.toString} to  ${dest.toString} ")
@@ -148,9 +147,6 @@ class ParquetConverterJob(sft: SimpleFeatureType,
 
 }
 
-/**
-  * Takes the input and writes it to the output - all our main work is done in the input format
-  */
 class IngestMapper extends Mapper[LongWritable, SimpleFeature, Text, BytesWritable] with LazyLogging {
 
   type Context = Mapper[LongWritable, SimpleFeature, Text, BytesWritable]#Context
@@ -212,12 +208,13 @@ class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
 
 
       override def write(key: Void, value: SimpleFeature): Unit = {
+        // TODO once this is done we need to fix up these file names to do parts or something?
         val basePath = name + "/" + partitionScheme.getPartitionName(value)
         if (writers.contains(basePath)) {
           writers(basePath).write(key, value)
         } else {
           val codec = CodecConfig.from(context).getCodec
-          val extension = codec.getExtension + ".parquet"
+          val extension = ".parquet"
           val committer = getOutputCommitter(context).asInstanceOf[FileOutputCommitter]
           val file = new Path(committer.getWorkPath, basePath + extension)
           logger.info(s"Creating Date scheme record writer at path ${file.toString}")
