@@ -25,7 +25,7 @@ import org.opengis.feature.simple.SimpleFeatureType
 import scala.collection.JavaConverters._
 
 class FileSystemDataStore(fs: FileSystem,
-                          root: Path,
+                          val root: Path,
                           storage: FileSystemStorage,
                           readThreads: Int,
                           namespaceStr: String = null) extends ContentDataStore {

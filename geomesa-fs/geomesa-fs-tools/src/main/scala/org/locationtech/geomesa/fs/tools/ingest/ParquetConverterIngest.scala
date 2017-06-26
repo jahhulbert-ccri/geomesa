@@ -11,6 +11,7 @@ package org.locationtech.geomesa.fs.tools.ingest
 import java.io.File
 
 import com.typesafe.config.Config
+import org.apache.hadoop.fs.Path
 import org.locationtech.geomesa.tools.ingest.ConverterIngest
 import org.opengis.feature.simple.SimpleFeatureType
 
@@ -20,11 +21,13 @@ class ParquetConverterIngest(sft: SimpleFeatureType,
                              inputs: Seq[String],
                              libjarsFile: String,
                              libjarsPaths: Iterator[() => Seq[File]],
-                             numLocalThreads: Int)
+                             numLocalThreads: Int,
+                             dsPath: Path,
+                             tempPath: Path)
   extends ConverterIngest(sft, dsParams, converterConfig, inputs, libjarsFile, libjarsPaths, numLocalThreads) {
 
   override def runDistributedJob(statusCallback: (Float, Long, Long, Boolean) => Unit = (_, _, _, _) => Unit): (Long, Long) = {
-    val job = new ParquetConverterJob(sft, converterConfig)
+    val job = new ParquetConverterJob(sft, converterConfig, dsPath, tempPath)
     job.run(dsParams, sft.getTypeName, inputs, libjarsFile, libjarsPaths, statusCallback)
   }
 

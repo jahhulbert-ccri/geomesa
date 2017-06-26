@@ -10,7 +10,8 @@ package org.locationtech.geomesa.fs.tools.ingest
 
 import java.io.File
 
-import com.beust.jcommander.{ParameterException, Parameters}
+import com.beust.jcommander.{Parameter, ParameterException, Parameters}
+import org.apache.hadoop.fs.Path
 import org.locationtech.geomesa.fs.FileSystemDataStore
 import org.locationtech.geomesa.fs.tools.{FsDataStoreCommand, FsParams}
 import org.locationtech.geomesa.tools.ingest._
@@ -43,7 +44,16 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
 
     val sft = CLArgResolver.getSft(params.spec, params.featureName)
     val converterConfig = CLArgResolver.getConfig(params.config)
-    val ingest = new ParquetConverterIngest(sft, connection, converterConfig, params.files, libjarsFile, libjarsPaths, params.threads)
+    val ingest =
+      new ParquetConverterIngest(sft,
+        connection,
+        converterConfig,
+        params.files,
+        libjarsFile,
+        libjarsPaths,
+        params.threads,
+        new Path(params.path),
+        new Path(params.tempDir))
     ingest.run()
   }
 
@@ -51,4 +61,7 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
 
 // TODO implement datetime format, etc here for ingest or create type maybe?
 @Parameters(commandDescription = "Ingest/convert various file formats into GeoMesa")
-class FsIngestParams extends IngestParams with FsParams
+class FsIngestParams extends IngestParams with FsParams {
+  @Parameter(names = Array("--temp-path"), description = "Path to temp dir for parquet ingest", required = true)
+  var tempDir: String = _
+}
