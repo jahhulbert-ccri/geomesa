@@ -13,24 +13,42 @@ import java.io.File
 import com.beust.jcommander.{ParameterException, Parameters}
 import org.locationtech.geomesa.fs.FileSystemDataStore
 import org.locationtech.geomesa.fs.tools.{FsDataStoreCommand, FsParams}
-import org.locationtech.geomesa.tools.ingest.{IngestCommand, IngestParams}
+import org.locationtech.geomesa.tools.ingest._
+import org.locationtech.geomesa.tools.utils.CLArgResolver
+import org.locationtech.geomesa.utils.classpath.ClassPathUtils
 
+import scala.collection.JavaConversions._
+
+// TODO we need multi threaded ingest for this
 class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStoreCommand {
 
   override val params = new FsIngestParams
 
-  override val libjarsFile: String = ""
+  override val libjarsFile: String = "org/locationtech/geomesa/fs/tools/ingest-libjars.list"
 
-  override def libjarsPaths: Iterator[() => Seq[File]] = Iterator.empty
+  override def libjarsPaths: Iterator[() => Seq[File]] = Iterator(
+    () => ClassPathUtils.getJarsFromEnvironment("GEOMESA_FS_HOME"),
+    () => ClassPathUtils.getJarsFromClasspath(classOf[FileSystemDataStore])
+  )
 
   override def execute(): Unit = {
-    import scala.collection.JavaConversions._
-    if (params.files.exists(IngestCommand.isDistributedUrl)) {
-      throw new ParameterException(s"Only local ingestion supported: ${params.files}")
+
+    // validate arguments
+    if (params.config == null) {
+      throw new ParameterException("Converter Config argument is required")
     }
-    super.execute()
+    if (params.spec == null) {
+      throw new ParameterException("SimpleFeatureType specification argument is required")
+    }
+
+    val sft = CLArgResolver.getSft(params.spec, params.featureName)
+    val converterConfig = CLArgResolver.getConfig(params.config)
+    val ingest = new ParquetConverterIngest(sft, connection, converterConfig, params.files, libjarsFile, libjarsPaths, params.threads)
+    ingest.run()
   }
+
 }
 
+// TODO implement datetime format, etc here for ingest or create type maybe?
 @Parameters(commandDescription = "Ingest/convert various file formats into GeoMesa")
 class FsIngestParams extends IngestParams with FsParams

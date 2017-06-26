@@ -138,7 +138,14 @@ class ParquetFileSystemStorage(root: Path,
     private val featureRoot = new Path(root, featureType)
     // TODO in the future there may be multiple files
     private val dataPath    = new Path(featureRoot, partition.getPaths.get(0).toString)
-    private val writer = new SimpleFeatureParquetWriter(dataPath, new SimpleFeatureWriteSupport(sft))
+
+    private val conf = {
+      val c = new Configuration()
+      c.set("sft.name", sft.getTypeName)
+      c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
+      c
+    }
+    private val writer = new SimpleFeatureParquetWriter(dataPath, conf)
 
     override def write(f: SimpleFeature): Unit = writer.write(f)
 

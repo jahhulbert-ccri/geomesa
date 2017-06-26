@@ -16,11 +16,11 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.apache.parquet.hadoop.{ParquetFileWriter, ParquetWriter}
 import org.opengis.feature.simple.SimpleFeature
 
-class SimpleFeatureParquetWriter(path: Path, writeSupport: SimpleFeatureWriteSupport)
+class SimpleFeatureParquetWriter(path: Path, conf: Configuration)
   extends ParquetWriter[SimpleFeature](
     path,
     ParquetFileWriter.Mode.OVERWRITE,
-    writeSupport,
+    new SimpleFeatureWriteSupport,
     CompressionCodecName.SNAPPY,
     ParquetWriter.DEFAULT_BLOCK_SIZE,
     ParquetWriter.DEFAULT_PAGE_SIZE,
@@ -28,5 +28,5 @@ class SimpleFeatureParquetWriter(path: Path, writeSupport: SimpleFeatureWriteSup
     true,
     false,
     ParquetProperties.WriterVersion.PARQUET_2_0,
-    new Configuration
+    conf
   ) { }

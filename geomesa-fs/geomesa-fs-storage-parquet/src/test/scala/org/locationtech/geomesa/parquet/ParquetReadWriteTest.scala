@@ -14,6 +14,7 @@ import java.nio.file.Files
 import java.time.Instant
 
 import com.vividsolutions.jts.geom.{Coordinate, Point}
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.hadoop.ParquetReader
@@ -41,7 +42,13 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
     val sft = SimpleFeatureTypes.createType("test", "name:String,age:Int,dtg:Date,*geom:Point:srid=4326")
 
     "write parquet files" >> {
-      val writer = new SimpleFeatureParquetWriter(new Path(f.toUri), new SimpleFeatureWriteSupport(sft))
+      val conf = {
+        val c = new Configuration()
+        c.set("sft.name", sft.getTypeName)
+        c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
+        c
+      }
+      val writer = new SimpleFeatureParquetWriter(new Path(f.toUri), conf)
 
       val d1 = java.util.Date.from(Instant.parse("2017-01-01T00:00:00Z"))
       val d2 = java.util.Date.from(Instant.parse("2017-01-02T00:00:00Z"))

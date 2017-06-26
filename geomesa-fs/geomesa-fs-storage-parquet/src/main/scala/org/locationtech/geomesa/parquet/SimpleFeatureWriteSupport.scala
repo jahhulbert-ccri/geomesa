@@ -13,16 +13,25 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.parquet.hadoop.api.WriteSupport
 import org.apache.parquet.hadoop.api.WriteSupport.WriteContext
 import org.apache.parquet.io.api.{Binary, RecordConsumer}
+import org.apache.parquet.schema.MessageType
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
-class SimpleFeatureWriteSupport(sft: SimpleFeatureType) extends WriteSupport[SimpleFeature] {
+class SimpleFeatureWriteSupport extends WriteSupport[SimpleFeature] {
 
-  private val messageType = SimpleFeatureParquetSchema(sft)
+  private var sft: SimpleFeatureType = _
+  private var messageType: MessageType = _
   private var consumer: RecordConsumer = _
-  private val writers = SimpleFeatureParquetSchema.buildAttributeWriters(sft)
-  private val idIndex = sft.getAttributeCount // put the ID at the end of the record ? Why?
+  private var writers: Array[AttributeWriter] = _
+  private var  idIndex: java.lang.Integer = _// put the ID at the end of the record ? Why?
 
   override def init(configuration: Configuration): WriteContext = {
+    val spec = configuration.get("sft.spec")
+    val name = configuration.get("sft.name")
+    this.sft = SimpleFeatureTypes.createType(name, spec)
+    this.idIndex = sft.getAttributeCount
+    this.writers = SimpleFeatureParquetSchema.buildAttributeWriters(sft)
+    this.messageType = SimpleFeatureParquetSchema(sft)
     new WriteContext(messageType, Maps.newHashMap())
   }
 
