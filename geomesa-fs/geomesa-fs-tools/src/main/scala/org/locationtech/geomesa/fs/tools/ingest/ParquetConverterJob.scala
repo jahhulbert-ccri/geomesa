@@ -22,7 +22,6 @@ import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.lib.output.{FileOutputCommitter, FileOutputFormat}
 import org.apache.parquet.hadoop.ParquetOutputFormat
-import org.apache.parquet.hadoop.codec.CodecConfig
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.geotools.data.DataUtilities
 import org.geotools.factory.Hints
@@ -31,7 +30,7 @@ import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.fs.storage.api.PartitionScheme
 import org.locationtech.geomesa.fs.storage.common.DateTimeZ2Scheme
 import org.locationtech.geomesa.jobs.JobUtils
-import org.locationtech.geomesa.jobs.mapreduce.FileStreamInputFormat
+import org.locationtech.geomesa.jobs.mapreduce.{FileStreamInputFormat, GeoMesaOutputFormat}
 import org.locationtech.geomesa.parquet.SimpleFeatureWriteSupport
 import org.locationtech.geomesa.tools.Command
 import org.locationtech.geomesa.tools.ingest.ConverterIngestJob
@@ -47,7 +46,8 @@ import scala.collection.mutable
 class ParquetConverterJob(sft: SimpleFeatureType,
                           converterConfig: Config,
                           dsPath: Path,
-                          tempPath: Path) extends ConverterIngestJob(sft, converterConfig) with LazyLogging {
+                          tempPath: Path,
+                          reducers: Int) extends ConverterIngestJob(sft, converterConfig) with LazyLogging {
 
   override def run(dsParams: Map[String, String],
     typeName: String,
@@ -67,7 +67,7 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     job.setMapOutputValueClass(classOf[BytesWritable])
 
     // Dummy reducer to convert to void and shuffle
-    job.setNumReduceTasks(1)
+    job.setNumReduceTasks(reducers)
     job.setReducerClass(classOf[DummyReducer])
     job.getConfiguration.set("mapred.reduce.tasks.speculative.execution", "false")
 
@@ -75,6 +75,9 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     job.setOutputFormatClass(classOf[SchemeOutputFormat])
     job.setOutputKeyClass(classOf[Void])
     job.setOutputValueClass(classOf[SimpleFeature])
+
+    // Super important
+    job.getConfiguration.set(ParquetOutputFormat.JOB_SUMMARY_LEVEL, ParquetOutputFormat.JobSummaryLevel.NONE.toString)
 
     ParquetOutputFormat.setCompression(job, CompressionCodecName.SNAPPY)
     ParquetOutputFormat.setWriteSupportClass(job, classOf[SimpleFeatureWriteSupport])
@@ -95,7 +98,7 @@ class ParquetConverterJob(sft: SimpleFeatureType,
 
     while (!job.isComplete) {
       if (job.getStatus.getState != JobStatus.State.PREP) {
-        statusCallback(job.mapProgress(), written(job), failed(job), false) // we don't have any reducers, just track mapper progress
+        statusCallback(job.mapProgress(), written(job), failed(job), false)
       }
       Thread.sleep(1000)
     }
@@ -154,6 +157,8 @@ class IngestMapper extends Mapper[LongWritable, SimpleFeature, Text, BytesWritab
   private var serializer: KryoFeatureSerializer = _
   private var partitionScheme: PartitionScheme = _
 
+  var written: Counter = _
+
   override def setup(context: Context): Unit = {
     super.setup(context)
     val spec = context.getConfiguration.get(FileStreamInputFormat.SftKey)
@@ -161,15 +166,19 @@ class IngestMapper extends Mapper[LongWritable, SimpleFeature, Text, BytesWritab
     val sft = SimpleFeatureTypes.createType(name, spec)
     serializer = new KryoFeatureSerializer(sft, SerializationOptions.withUserData)
     partitionScheme = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
+
+    written = context.getCounter(GeoMesaOutputFormat.Counters.Group, GeoMesaOutputFormat.Counters.Written)
   }
 
   override def map(key: LongWritable, sf: SimpleFeature, context: Context): Unit = {
     logger.debug(s"map key ${key.toString}, map value ${DataUtilities.encodeFeature(sf)}")
     sf.getUserData.put(Hints.USE_PROVIDED_FID, java.lang.Boolean.TRUE)
 
+    context.getCounter("geomesa", "map").increment(1)
     // partitionKey is important because this needs to be correct for the parquet file
     val partitionKey = new Text(partitionScheme.getPartitionName(sf))
     context.write(partitionKey, new BytesWritable(serializer.serialize(sf)))
+    written.increment(1)
   }
 }
 
@@ -178,6 +187,7 @@ class DummyReducer extends Reducer[Text, BytesWritable, Void, SimpleFeature] {
   type Context = Reducer[Text, BytesWritable, Void, SimpleFeature]#Context
 
   private var serializer: KryoFeatureSerializer = _
+  var reduced: Counter = _
 
   override def setup(context: Context): Unit = {
     super.setup(context)
@@ -185,11 +195,13 @@ class DummyReducer extends Reducer[Text, BytesWritable, Void, SimpleFeature] {
     val name = context.getConfiguration.get(FileStreamInputFormat.TypeNameKey)
     val sft = SimpleFeatureTypes.createType(name, spec)
     serializer = new KryoFeatureSerializer(sft, SerializationOptions.withUserData)
+    reduced = context.getCounter(GeoMesaOutputFormat.Counters.Group, "reduced")
   }
 
   override def reduce(key: Text, values: Iterable[BytesWritable], context: Context): Unit = {
     values.foreach { bw =>
       context.write(null, serializer.deserialize(bw.getBytes))
+      reduced.increment(1)
     }
   }
 
@@ -201,31 +213,39 @@ class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
     val spec = context.getConfiguration.get(FileStreamInputFormat.SftKey)
     val name = context.getConfiguration.get(FileStreamInputFormat.TypeNameKey)
     val sft = SimpleFeatureTypes.createType(name, spec)
+
     new RecordWriter[Void, SimpleFeature] with LazyLogging {
 
       private val partitionScheme = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
-      private val writers = mutable.HashMap.empty[String, RecordWriter[Void, SimpleFeature]]
-
+      var curPartition: String = _
+      var writer: RecordWriter[Void, SimpleFeature] = _
+      var sentToParquet: Counter = context.getCounter(GeoMesaOutputFormat.Counters.Group, "sentToParquet")
 
       override def write(key: Void, value: SimpleFeature): Unit = {
-        // TODO once this is done we need to fix up these file names to do parts or something?
-        val basePath = name + "/" + partitionScheme.getPartitionName(value)
-        if (writers.contains(basePath)) {
-          writers(basePath).write(key, value)
-        } else {
-          val codec = CodecConfig.from(context).getCodec
+        val basePath = name + "/" + partitionScheme.getPartitionName(value)         // TODO once this is done we need to fix up these file names to do parts or something?
+
+        def initWriter() = {
           val extension = ".parquet" // TODO this has to match the FS from the geomesa-fs abstraction need to do that
           val committer = getOutputCommitter(context).asInstanceOf[FileOutputCommitter]
           val file = new Path(committer.getWorkPath, basePath + extension)
           logger.info(s"Creating Date scheme record writer at path ${file.toString}")
-          val rr = getRecordWriter(context, file)
-          writers(basePath) = rr
-          rr.write(key, value)
+          curPartition = basePath
+          writer = getRecordWriter(context, file)
         }
+
+        if (writer == null) {
+          initWriter()
+        } else if (basePath != curPartition) {
+          writer.close(context)
+          logger.info(s"Closing writer for $curPartition")
+          initWriter()
+        }
+        writer.write(key, value)
+        sentToParquet.increment(1)
       }
 
       override def close(context: TaskAttemptContext): Unit = {
-        writers.values.foreach(_.close(context))
+        writer.close(context)
       }
     }
   }

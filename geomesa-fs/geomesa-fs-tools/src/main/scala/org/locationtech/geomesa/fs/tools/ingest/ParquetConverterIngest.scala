@@ -23,11 +23,12 @@ class ParquetConverterIngest(sft: SimpleFeatureType,
                              libjarsPaths: Iterator[() => Seq[File]],
                              numLocalThreads: Int,
                              dsPath: Path,
-                             tempPath: Path)
+                             tempPath: Path,
+                             reducers: Int)
   extends ConverterIngest(sft, dsParams, converterConfig, inputs, libjarsFile, libjarsPaths, numLocalThreads) {
 
   override def runDistributedJob(statusCallback: (Float, Long, Long, Boolean) => Unit = (_, _, _, _) => Unit): (Long, Long) = {
-    val job = new ParquetConverterJob(sft, converterConfig, dsPath, tempPath)
+    val job = new ParquetConverterJob(sft, converterConfig, dsPath, tempPath, reducers)
     job.run(dsParams, sft.getTypeName, inputs, libjarsFile, libjarsPaths, statusCallback)
   }
 

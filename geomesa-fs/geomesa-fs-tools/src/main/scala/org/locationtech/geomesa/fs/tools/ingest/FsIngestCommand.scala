@@ -53,7 +53,8 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
         libjarsPaths,
         params.threads,
         new Path(params.path),
-        new Path(params.tempDir))
+        new Path(params.tempDir),
+        params.reducers)
     ingest.run()
   }
 
@@ -64,4 +65,7 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
 class FsIngestParams extends IngestParams with FsParams {
   @Parameter(names = Array("--temp-path"), description = "Path to temp dir for parquet ingest", required = true)
   var tempDir: String = _
+
+  @Parameter(names = Array("--num-reducers"), description = "Num reducers", required = true)
+  var reducers: java.lang.Integer = _
 }
