@@ -54,13 +54,7 @@ class ConverterStorageFactory extends FileSystemStorageFactory {
     }
     val converter = SimpleFeatureConverters.build(sft, converterConfig)
 
-    // TODO refactor ?
-    val schemeName = params.get("fs.partition-scheme.name").toString
-    import scala.collection.JavaConversions._
-    val partOpts = params.keySet.filter(_.startsWith("fs.partition-scheme.opts.")).map{opt =>
-      opt.replace("fs.partition-scheme.opts.", "") -> params.get(opt).toString
-    }.toMap
-    val partitionScheme = PartitionScheme(schemeName, sft, partOpts)
+    val partitionScheme = PartitionScheme(sft, params)
     new ConverterStorage(root, root.getFileSystem(new Configuration), partitionScheme, sft, converter)
   }
 }

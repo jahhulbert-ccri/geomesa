@@ -214,7 +214,7 @@ class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
           writers(basePath).write(key, value)
         } else {
           val codec = CodecConfig.from(context).getCodec
-          val extension = ".parquet"
+          val extension = ".parquet" // TODO this has to match the FS from the geomesa-fs abstraction need to do that
           val committer = getOutputCommitter(context).asInstanceOf[FileOutputCommitter]
           val file = new Path(committer.getWorkPath, basePath + extension)
           logger.info(s"Creating Date scheme record writer at path ${file.toString}")

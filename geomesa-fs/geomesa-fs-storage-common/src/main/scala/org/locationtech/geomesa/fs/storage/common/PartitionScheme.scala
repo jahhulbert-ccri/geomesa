@@ -8,12 +8,15 @@
 
 package org.locationtech.geomesa.fs.storage.common
 
+import java.io.Serializable
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.time.{Instant, ZoneOffset}
+import java.util
 import java.util.Date
 
 import com.vividsolutions.jts.geom.{Geometry, Point}
+import org.geotools.data.DataAccessFactory.Param
 import org.locationtech.geomesa.filter.FilterHelper.extractGeometries
 import org.locationtech.geomesa.filter.{FilterHelper, FilterValues}
 import org.locationtech.geomesa.fs.storage.api.PartitionScheme
@@ -51,10 +54,21 @@ object PartitionOpts {
 
 
 object PartitionScheme {
+  val PartitionOptsPrefix = "fs.partition-scheme.opts."
+  val PartitionSchemeParam = new Param("fs.partition-scheme.name", classOf[String], "Partition scheme name", false)
 
-  def apply(name: String, sft: SimpleFeatureType, opts: Map[String, String]): PartitionScheme = {
+  def apply(sft: SimpleFeatureType, dsParams: util.Map[String, Serializable]): PartitionScheme = {
+    val pName = PartitionSchemeParam.lookUp(dsParams).toString
+    import scala.collection.JavaConversions._
+    val pOpts = dsParams.keySet.filter(_.startsWith(PartitionOptsPrefix)).map{opt =>
+      opt.replace(PartitionOptsPrefix, "") -> dsParams.get(opt).toString
+    }.toMap
+    PartitionScheme(sft, pName, pOpts)
+  }
+
+  def apply(sft: SimpleFeatureType, pName: String, opts: Map[String, String]): PartitionScheme = {
     import PartitionOpts._
-    name match {
+    pName match {
       case "date" =>
         val attr = parseAttribute(opts)
         val fmt = parseDateTimeFormat(opts)
@@ -63,6 +77,8 @@ object PartitionScheme {
         new DateScheme(fmt, su, s, sft, attr)
     }
   }
+
+
 }
 
 class DateScheme(fmt: DateTimeFormatter,

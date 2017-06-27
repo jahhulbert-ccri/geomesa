@@ -125,11 +125,13 @@ class FilterConverter(sft: SimpleFeatureType) {
         val res = or.getChildren.flatMap(attrFilter)
         if (res.nonEmpty) Option(res.reduceLeft(FilterApi.or)) else None
 
+        // TODO support more than String queries
       case binop: org.opengis.filter.BinaryComparisonOperator =>
         val name = binop.getExpression1.asInstanceOf[PropertyName].getPropertyName
         val value = binop.getExpression2.toString
         binop match {
-          case _ if name == dtgAttrOpt.getOrElse("dtg") =>
+          case _ if name == dtgAttrOpt.getOrElse("dtg") |
+            sft.getDescriptor(name).getType.getBinding != classOf[String] =>
             None
           case eq: org.opengis.filter.PropertyIsEqualTo =>
             Option(FilterApi.eq(column(name), convert(name, value)))
