@@ -8,6 +8,7 @@
 
 package org.locationtech.geomesa.parquet
 
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.parquet.hadoop.ParquetReader
 import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, Partition}
 import org.opengis.feature.simple.SimpleFeature
@@ -17,11 +18,14 @@ import org.opengis.feature.simple.SimpleFeature
   */
 class FilteringIterator(partition: Partition,
                         reader: ParquetReader[SimpleFeature],
-                        gtFilter: org.opengis.filter.Filter) extends FileSystemPartitionIterator {
+                        gtFilter: org.opengis.filter.Filter) extends FileSystemPartitionIterator with LazyLogging {
 
   private var staged: SimpleFeature = _
 
-  override def close(): Unit = reader.close()
+  override def close(): Unit = {
+    logger.info(s"Closing parquet reader for partition $partition")
+    reader.close()
+  }
 
   override def next(): SimpleFeature = staged
 
@@ -65,28 +69,28 @@ class FilteringIterator(partition: Partition,
 //    .withFilter(parquetFilter)
 //    .build()
 //}
-
-class FilteringParquetIterator(reader: ParquetReader[SimpleFeature],
-                               gtFilter: org.opengis.filter.Filter) extends Iterator[SimpleFeature] {
-  private var staged: SimpleFeature = _
-
-  override def next(): SimpleFeature = staged
-
-  override def hasNext: Boolean = {
-    staged = null
-    var cont = true
-    while (staged == null && cont) {
-      val f = reader.read()
-      if (f == null) {
-        cont = false
-      } else if (gtFilter.evaluate(f)) {
-        staged = f
-      }
-    }
-    staged != null
-  }
-
-}
+//
+//class FilteringParquetIterator(reader: ParquetReader[SimpleFeature],
+//                               gtFilter: org.opengis.filter.Filter) extends Iterator[SimpleFeature] {
+//  private var staged: SimpleFeature = _
+//
+//  override def next(): SimpleFeature = staged
+//
+//  override def hasNext: Boolean = {
+//    staged = null
+//    var cont = true
+//    while (staged == null && cont) {
+//      val f = reader.read()
+//      if (f == null) {
+//        cont = false
+//      } else if (gtFilter.evaluate(f)) {
+//        staged = f
+//      }
+//    }
+//    staged != null
+//  }
+//
+//}
 
 
 class EmptyFsIterator(partition: Partition) extends FileSystemPartitionIterator {

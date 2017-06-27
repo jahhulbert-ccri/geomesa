@@ -10,8 +10,6 @@
 package org.locationtech.geomesa.parquet
 
 import java.net.URI
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.{io, util}
 
 import com.google.common.collect.Maps
@@ -22,7 +20,7 @@ import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.hadoop.ParquetReader
 import org.geotools.data.Query
 import org.locationtech.geomesa.fs.storage.api._
-import org.locationtech.geomesa.fs.storage.common.{DateTimeZ2Scheme, LeafStoragePartition}
+import org.locationtech.geomesa.fs.storage.common.{LeafStoragePartition, Stupid}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
@@ -37,8 +35,6 @@ class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
   override def build(params: util.Map[String, io.Serializable]): FileSystemStorage = {
     val path = params.get("fs.path").asInstanceOf[String]
     val root = new Path(path)
-    // TODO: how do we thread configuration through
-
     new ParquetFileSystemStorage(root, root.getFileSystem(new Configuration))
   }
 }
@@ -52,6 +48,7 @@ class ParquetFileSystemStorage(root: Path,
                                fs: FileSystem) extends FileSystemStorage with LazyLogging {
 
   private val fileExtension = "parquet"
+
 
   private val featureTypes = {
     val files = fs.listStatus(root)
@@ -96,6 +93,7 @@ class ParquetFileSystemStorage(root: Path,
       getPartitionScheme(featureTypes(typeName)).maxDepth()).map(getPartition)
   }
 
+  private val ugh = new Configuration()
   // TODO ask the parition manager the geometry is fully covered?
   override def getPartitionReader(q: Query, partition: Partition): FileSystemPartitionIterator = {
     val sft = featureTypes.get(q.getTypeName)
@@ -106,7 +104,6 @@ class ParquetFileSystemStorage(root: Path,
       new EmptyFsIterator(partition)
     }
     else {
-
       import org.locationtech.geomesa.index.conf.QueryHints._
       val transformSft = q.getHints.getTransformSchema.getOrElse(sft)
 
@@ -122,8 +119,10 @@ class ParquetFileSystemStorage(root: Path,
 
       logger.info(s"Parquet filter: $parquetFilter and modified gt filter ${fc._2}")
 
+      logger.info(s"Opening reader for partition $partition")
       val reader = ParquetReader.builder[SimpleFeature](support, path)
         .withFilter(parquetFilter)
+        .withConf(ugh)
         .build()
 
       new FilteringIterator(partition, reader, fc._2)
@@ -132,27 +131,27 @@ class ParquetFileSystemStorage(root: Path,
 
 
 
-  override def getWriter(featureType: String, partition: Partition): FileSystemWriter = new FileSystemWriter {
-    private val sft = featureTypes.get(featureType)
+  override def getWriter(featureType: String, partition: Partition): FileSystemWriter =
+    new FileSystemWriter {
+      private val sft = featureTypes.get(featureType)
 
-    private val featureRoot = new Path(root, featureType)
-    // TODO in the future there may be multiple files
-    private val dataPath    = new Path(featureRoot, partition.getPaths.get(0).toString)
+      private val featureRoot = new Path(root, featureType)
+      private val dataPath    = new Path(featureRoot, partition.getPaths.get(0).toString) // TODO in the future there may be multiple files
+      private val conf = {
+        val c = new Configuration()
+        c.set("sft.name", sft.getTypeName)
+        c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
+        c
+      }
 
-    private val conf = {
-      val c = new Configuration()
-      c.set("sft.name", sft.getTypeName)
-      c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
-      c
+      private val writer = new SimpleFeatureParquetWriter(dataPath, conf)
+
+      override def write(f: SimpleFeature): Unit = writer.write(f)
+
+      override def flush(): Unit = {}
+
+      override def close(): Unit = writer.close()
     }
-    private val writer = new SimpleFeatureParquetWriter(dataPath, conf)
-
-    override def write(f: SimpleFeature): Unit = writer.write(f)
-
-    override def flush(): Unit = {}
-
-    override def close(): Unit = writer.close()
-  }
 
   override def createNewFeatureType(sft: SimpleFeatureType, partitionScheme: PartitionScheme): Unit = {
     val path = new Path(root, sft.getTypeName)
@@ -172,7 +171,7 @@ class ParquetFileSystemStorage(root: Path,
 
   override def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = {
     // TODO allow other things
-    new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
+    Stupid.makeScheme(sft)
   }
 
   override def getPartition(name: String): Partition = new LeafStoragePartition(name, Some(fileExtension))

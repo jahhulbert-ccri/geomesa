@@ -10,8 +10,6 @@ package org.locationtech.geomesa.fs.tools.ingest
 
 import java.io.{File, IOException}
 import java.lang.Iterable
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
@@ -28,7 +26,7 @@ import org.geotools.factory.Hints
 import org.locationtech.geomesa.features.SerializationOption.SerializationOptions
 import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.fs.storage.api.PartitionScheme
-import org.locationtech.geomesa.fs.storage.common.DateTimeZ2Scheme
+import org.locationtech.geomesa.fs.storage.common.Stupid
 import org.locationtech.geomesa.jobs.JobUtils
 import org.locationtech.geomesa.jobs.mapreduce.{FileStreamInputFormat, GeoMesaOutputFormat}
 import org.locationtech.geomesa.parquet.SimpleFeatureWriteSupport
@@ -165,7 +163,7 @@ class IngestMapper extends Mapper[LongWritable, SimpleFeature, Text, BytesWritab
     val name = context.getConfiguration.get(FileStreamInputFormat.TypeNameKey)
     val sft = SimpleFeatureTypes.createType(name, spec)
     serializer = new KryoFeatureSerializer(sft, SerializationOptions.withUserData)
-    partitionScheme = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
+    partitionScheme = Stupid.makeScheme(sft)
 
     written = context.getCounter(GeoMesaOutputFormat.Counters.Group, GeoMesaOutputFormat.Counters.Written)
   }
@@ -216,7 +214,7 @@ class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
 
     new RecordWriter[Void, SimpleFeature] with LazyLogging {
 
-      private val partitionScheme = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 10, sft, "dtg", "geom")
+      private val partitionScheme = Stupid.makeScheme(sft)
       var curPartition: String = _
       var writer: RecordWriter[Void, SimpleFeature] = _
       var sentToParquet: Counter = context.getCounter(GeoMesaOutputFormat.Counters.Group, "sentToParquet")

@@ -14,7 +14,7 @@ import java.util.concurrent.{CountDownLatch, Executors, LinkedBlockingQueue, Tim
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.FileSystem
 import org.geotools.data.Query
-import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, FileSystemStorage, Partition, PartitionScheme}
+import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, Partition, PartitionScheme}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 class FileSystemFeatureIterator(fs: FileSystem,
@@ -40,14 +40,16 @@ class FileSystemFeatureIterator(fs: FileSystem,
     }
   }
 
-  private val threadedReader = new ThreadedReader(partitions.map(storage.getPartitionReader(q,_)), readThreads)
+//  private val threadedReader = new ThreadedReader(partitions.map(storage.getPartitionReader(q,_)), readThreads)
+  private val threadedReader = new ThreadedReader(storage, partitions, q, readThreads)
   override def hasNext: Boolean = threadedReader.hasNext
   override def next(): SimpleFeature = threadedReader.next()
   override def close(): Unit = threadedReader.close()
 }
 
 
-class ThreadedReader(readers: Seq[FileSystemPartitionIterator], numThreads: Int)
+//class ThreadedReader(readers: Seq[FileSystemPartitionIterator], numThreads: Int)
+class ThreadedReader(storage: FileSystemStorage, partitions: Seq[Partition], q: Query, numThreads: Int)
   extends java.util.Iterator[SimpleFeature] with AutoCloseable with LazyLogging {
 
   // Need to do more tuning here. On a local system 1 thread (so basic producer/consumer) was best
@@ -57,17 +59,20 @@ class ThreadedReader(readers: Seq[FileSystemPartitionIterator], numThreads: Int)
   //
   // However, if you are doing lots of filtering it appears that bumping the threads up high
   // can be very useful. Seems possibly numcores/2 might is a good setting (which is a standard idea)
+
+  logger.info(s"Threadeding the read of ${partitions.size} partitions with $numThreads reader threads (and 1 writer thread)")
   private val es = Executors.newFixedThreadPool(numThreads)
-  private val latch = new CountDownLatch(readers.size)
+  private val latch = new CountDownLatch(partitions.size)
 
   private val queue = new LinkedBlockingQueue[SimpleFeature](100000)
 
   private var started: Boolean = false
   private def start(): Unit = {
-    readers.foreach { reader =>
+    partitions.foreach { p =>
       es.submit(new Runnable with LazyLogging {
         override def run(): Unit = {
           var count = 0
+          val reader = storage.getPartitionReader(q, p)
           try {
             while (reader.hasNext) {
               count += 1
@@ -80,6 +85,7 @@ class ThreadedReader(readers: Seq[FileSystemPartitionIterator], numThreads: Int)
               logger.error(s"Error in reader for partition ${reader.getPartition}: ${e.getMessage}", e)
           } finally {
             latch.countDown()
+            try { reader.close() } catch { case e: Exception => }
             logger.info(s"Partition ${reader.getPartition} produced $count records")
           }
         }
@@ -118,7 +124,6 @@ class ThreadedReader(readers: Seq[FileSystemPartitionIterator], numThreads: Int)
 
   override def close(): Unit = {
     es.awaitTermination(5, TimeUnit.SECONDS)
-    latch.await(5, TimeUnit.SECONDS)
-    readers.foreach(_.close())
+    latch.await(10, TimeUnit.SECONDS)
   }
 }

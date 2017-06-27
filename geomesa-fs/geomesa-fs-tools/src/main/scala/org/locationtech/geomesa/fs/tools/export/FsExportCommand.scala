@@ -10,15 +10,15 @@ package org.locationtech.geomesa.fs.tools.export
 
 import java.util.zip.Deflater
 
-import com.beust.jcommander.{ParameterException, Parameters}
+import com.beust.jcommander.{Parameter, ParameterException, Parameters}
 import com.typesafe.scalalogging.LazyLogging
 import org.geotools.data.Query
 import org.geotools.filter.text.ecql.ECQL
-import org.locationtech.geomesa.fs.FileSystemDataStore
+import org.locationtech.geomesa.fs.{FileSystemDataStore, FileSystemDataStoreParams}
 import org.locationtech.geomesa.fs.tools.{FsDataStoreCommand, FsParams}
 import org.locationtech.geomesa.tools.Command
 import org.locationtech.geomesa.tools.export.formats._
-import org.locationtech.geomesa.tools.export.{ExportCommand, ExportParams, FileExportParams}
+import org.locationtech.geomesa.tools.export.{DataExportParams, ExportCommand, ExportParams}
 import org.locationtech.geomesa.tools.utils.DataFormats
 import org.locationtech.geomesa.utils.io.CloseQuietly
 import org.locationtech.geomesa.utils.stats.{MethodProfiling, Timing}
@@ -95,7 +95,16 @@ class FsExportCommand extends FsDataStoreCommand with MethodProfiling with LazyL
       CloseQuietly(exporter)
     }
   }
+
+  override def connection: Map[String, String] = {
+    super[FsDataStoreCommand].connection ++ Map(FileSystemDataStoreParams.ReadThreadsParam.getName -> params.threads.toString )
+  }
+}
+
+trait ThreadsParam {
+  @Parameter(names = Array("--threads"), description = "threads (start with 1)", required = true)
+  var threads: java.lang.Integer = _
 }
 
 @Parameters(commandDescription = "Export features from a GeoMesa data store")
-class FsExportParams extends FsParams with FileExportParams with ExportParams
+class FsExportParams extends FsParams with DataExportParams with ExportParams with ThreadsParam
