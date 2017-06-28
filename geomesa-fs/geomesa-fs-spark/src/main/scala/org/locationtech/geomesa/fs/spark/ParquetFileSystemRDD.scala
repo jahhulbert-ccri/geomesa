@@ -30,7 +30,7 @@ import org.opengis.feature.simple.SimpleFeature
 /**
   * Created by ahulbert on 6/28/17.
   */
-class ParquestFSRDD extends SpatialRDDProvider with LazyLogging {
+class ParquetFileSystemRDD extends SpatialRDDProvider with LazyLogging {
 
   override def canProcess(params: util.Map[String, Serializable]): Boolean =
     new ParquetFileSystemStorageFactory().canProcess(params)

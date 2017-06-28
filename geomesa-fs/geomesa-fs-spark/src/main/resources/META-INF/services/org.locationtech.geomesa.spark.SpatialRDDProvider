@@ -1,1 +1,1 @@
-org.locationtech.geomesa.fs.spark.ParquestFSRDD
+org.locationtech.geomesa.fs.spark.ParquetFileSystemRDD
