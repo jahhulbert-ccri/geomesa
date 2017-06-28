@@ -16,8 +16,6 @@ import org.locationtech.geomesa.convert.SimpleFeatureConverter
 import org.locationtech.geomesa.fs.storage.api.{FileSystemPartitionIterator, Partition}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
-
-// TODO partition should include root
 class ConverterPartitionReader(root: Path,
                                partition: Partition,
                                sft: SimpleFeatureType,

@@ -8,8 +8,6 @@
 
 package org.locationtech.geomesa.fs.storage.api;
 
-import java.net.URI;
-
 /**
  * Abstract class defining a partition. At the moment partitions define
  * file endpoints via a subclass that stores data in the leaf nodes of
@@ -36,9 +34,6 @@ abstract public class Partition {
     public String getName() {
         return name;
     }
-
-    // TODO this will likely be a list of URIs in the future for non-leaf partition strategies
-//    abstract public java.util.List<URI> getPaths();
 
     @Override
     public boolean equals(Object o) {

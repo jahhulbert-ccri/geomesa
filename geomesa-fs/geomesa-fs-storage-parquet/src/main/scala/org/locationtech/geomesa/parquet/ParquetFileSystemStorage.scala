@@ -142,8 +142,7 @@ class ParquetFileSystemStorage(root: Path,
 
       // TODO in the future there may be multiple files
       val dataPath = new Path(getPaths(sft.getTypeName, partition).get(0))
-//      private val featureRoot = new Path(root, featureType)
-//      private val dataPath    = new Path(featureRoot, partition.getPaths.get(0).toString)
+
       private val sftConf = {
         val c = new Configuration(conf)
         c.set("sft.name", sft.getTypeName)

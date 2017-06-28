@@ -38,9 +38,6 @@ import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 
-/**
-  * Created by ahulbert on 6/26/17.
-  */
 class ParquetConverterJob(sft: SimpleFeatureType,
                           converterConfig: Config,
                           dsPath: Path,

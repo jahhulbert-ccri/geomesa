@@ -16,9 +16,6 @@ import org.apache.parquet.hadoop.ParquetInputFormat
 import org.geotools.filter.text.ecql.ECQL
 import org.opengis.feature.simple.SimpleFeature
 
-/**
-  * Created by ahulbert on 6/28/17.
-  */
 class SFParquetInputFormat extends ParquetInputFormat[SimpleFeature] {
   /**
     * {@inheritDoc }

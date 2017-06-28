@@ -21,9 +21,6 @@ import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemWriter}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
-/**
-  * Created by anthony on 5/28/17.
-  */
 class FileSystemFeatureStore(entry: ContentEntry,
                              query: Query,
                              fs: FileSystem,

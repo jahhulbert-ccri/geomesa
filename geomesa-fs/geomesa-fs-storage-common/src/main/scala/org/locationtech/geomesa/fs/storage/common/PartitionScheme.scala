@@ -112,41 +112,6 @@ class DateScheme(fmt: DateTimeFormatter,
   override def maxDepth(): Int = fmt.toString.count(_ == '/')
 }
 
-//// TODO convert to using step unit and step and not be minute specific
-//class IntraHourScheme(fmt: DateTimeFormatter,
-//                      minuteIntervals: Int,
-//                      sft: SimpleFeatureType,
-//                      partitionAttribute: String)
-//  extends PartitionScheme {
-//  private val index = sft.indexOf(partitionAttribute)
-//  override def getPartitionName(sf: SimpleFeature): Partition = {
-//    val instant = sf.getAttribute(index).asInstanceOf[Date].toInstant.atZone(ZoneOffset.UTC)
-//    val adjusted = instant.withMinute(minuteIntervals*(instant.getMinute/minuteIntervals))
-//    new LeafStoragePartition(fmt.format(adjusted))
-//  }
-//
-//  override def getCoveringPartitions(f: Filter): java.util.List[Partition] = {
-//    // TODO: deal with more than just a single date range
-//    val interval = FilterHelper.extractIntervals(f, partitionAttribute).values
-//      .map { case (s,e) => (
-//        Instant.ofEpochMilli(s.getMillis).atZone(ZoneOffset.UTC),
-//        Instant.ofEpochMilli(e.getMillis).atZone(ZoneOffset.UTC)) }
-//    val names = if (interval.isEmpty) {
-//      Seq.empty[String]
-//    } else {
-//      val (start, end) = interval.head
-//      start.withMinute(minuteIntervals * (start.getMinute / minuteIntervals))
-//      end.withMinute(minuteIntervals * (end.getMinute / minuteIntervals))
-//      val count = start.until(end, ChronoUnit.MINUTES) / minuteIntervals
-//      (0 until count.toInt).map { i => start.plusMinutes(i * minuteIntervals) }.map { i => fmt.format(i) }
-//    }
-//    names.map(new LeafStoragePartition(_).asInstanceOf[Partition]).toList.asJava
-//  }
-//
-//  override def maxDepth(): Int = fmt.toString.count(_ == '/')
-//
-//}
-
 class Z2Scheme(bitWidth: Int, sft: SimpleFeatureType, geomAttribute: String) extends PartitionScheme {
   private val geomAttrIndex = sft.indexOf(geomAttribute)
   private val z2 = new ZCurve2D(bitWidth)

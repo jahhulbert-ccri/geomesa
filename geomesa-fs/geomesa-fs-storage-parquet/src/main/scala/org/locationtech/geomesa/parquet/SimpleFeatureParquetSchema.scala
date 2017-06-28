@@ -29,25 +29,6 @@ object SimpleFeatureParquetSchema {
     new MessageType(sft.getTypeName, sft.getAttributeDescriptors.map(convertField) :+ idField)
   }
 
-  // This may not always be accurate so we probably shouldn't do this. We can likely store
-//  def inverse(messageType: MessageType): SimpleFeatureType = {
-//    import scala.collection.JavaConversions._
-//    val sftBuilder = new SftBuilder
-//    val fields :+ idField = messageType.getFields.toList
-//    fields.foreach { c =>
-//      c.asPrimitiveType().getPrimitiveTypeName match {
-//        //case PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY => sftBuilder.point(c.getName)
-//        case PrimitiveTypeName.INT64                => sftBuilder.date(c.getName) // TODO: need to use metadata to determine date
-//        case PrimitiveTypeName.BINARY               => sftBuilder.stringType(c.getName)
-//        case PrimitiveTypeName.INT32                => sftBuilder.intType(c.getName)
-//        case PrimitiveTypeName.INT64                => sftBuilder.longType(c.getName)
-//        case PrimitiveTypeName.DOUBLE               => sftBuilder.doubleType(c.getName)
-//        case _ => throw new RuntimeException("Implement me")
-//      }
-//    }
-//    sftBuilder.build(messageType.getName)
-//  }
-
   def convertField(ad: AttributeDescriptor): Type = {
     import PrimitiveTypeName._
     import Type.Repetition

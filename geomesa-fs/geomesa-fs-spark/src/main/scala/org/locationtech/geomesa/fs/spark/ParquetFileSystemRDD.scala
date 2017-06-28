@@ -27,9 +27,6 @@ import org.locationtech.geomesa.parquet.{FilterConverter, ParquetFileSystemStora
 import org.locationtech.geomesa.spark.{SpatialRDD, SpatialRDDProvider}
 import org.opengis.feature.simple.SimpleFeature
 
-/**
-  * Created by ahulbert on 6/28/17.
-  */
 class ParquetFileSystemRDD extends SpatialRDDProvider with LazyLogging {
 
   override def canProcess(params: util.Map[String, Serializable]): Boolean =

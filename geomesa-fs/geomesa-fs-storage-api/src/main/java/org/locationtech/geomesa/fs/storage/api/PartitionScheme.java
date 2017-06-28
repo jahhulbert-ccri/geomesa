@@ -11,9 +11,6 @@ package org.locationtech.geomesa.fs.storage.api;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.filter.Filter;
 
-/**
- * Created by ahulbert on 6/22/17.
- */
 public interface PartitionScheme {
 
     /**

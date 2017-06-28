@@ -12,12 +12,9 @@ import org.geotools.data.Query
 import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, Partition}
 import org.opengis.feature.simple.SimpleFeatureType
 
-/**
-  * Created by ahulbert on 6/28/17.
-  */
 object PartitionUtils {
 
-  // TODO: don't list partitions as there could be too many
+  // TODO: don't list storage partitions as there could be too many
   def getPartitionsForQuery(storage: FileSystemStorage,
                             sft: SimpleFeatureType,
                             q: Query): Seq[Partition] = {
