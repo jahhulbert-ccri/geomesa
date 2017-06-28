@@ -28,10 +28,9 @@ public interface FileSystemStorage {
     Partition getPartition(String name);
     List<Partition> listPartitions(String typeName);
 
-    // TODO need to figure out partition vs path for readers and writers
-    // to handle having partition schemes that store a single file at a node
-    // or multiple files.
     FileSystemPartitionIterator getPartitionReader(Query q, Partition partition);
 
     FileSystemWriter getWriter(String typeName, Partition partition);
+
+    List<URI> getPaths(String typeName, Partition partition);
 }

@@ -25,6 +25,18 @@
                 <include>org.locationtech.geomesa:geomesa-tools*:jar:data</include>
             </includes>
         </dependencySet>
+        <dependencySet>
+            <outputDirectory>dist/spark</outputDirectory>
+            <directoryMode>0755</directoryMode>
+            <fileMode>0644</fileMode>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>false</useTransitiveDependencies>
+            <includes>
+                <include>org.locationtech.geomesa:geomesa-fs-spark*</include>
+                <include>org.locationtech.geomesa:geomesa-spark*</include>
+                <include>org.locationtech.geomesa:geomesa_pyspark*</include>
+            </includes>
+        </dependencySet>
     </dependencySets>
     <fileSets>
         <fileSet>

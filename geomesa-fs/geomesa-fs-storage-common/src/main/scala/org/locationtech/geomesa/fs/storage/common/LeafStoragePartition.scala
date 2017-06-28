@@ -8,9 +8,6 @@
 
 package org.locationtech.geomesa.fs.storage.common
 
-import java.net.URI
-
-import scala.collection.JavaConversions._
 import org.locationtech.geomesa.fs.storage.api.Partition
 
 /**
@@ -21,6 +18,6 @@ import org.locationtech.geomesa.fs.storage.api.Partition
   *
   * @param name
   */
-class LeafStoragePartition(name: String, extension: Option[String] = None) extends Partition(name) {
-  override def getPaths: java.util.List[URI] = List(new URI(name + extension.map("." + _).getOrElse("")))
+class LeafStoragePartition(name: String) extends Partition(name) {
+//  override def getPaths: java.util.List[URI] = List(new URI(name + extension.map("." + _).getOrElse("")))
 }

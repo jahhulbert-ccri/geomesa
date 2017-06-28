@@ -98,8 +98,9 @@ class ParquetFileSystemStorage(root: Path,
   // TODO ask the parition manager the geometry is fully covered?
   override def getPartitionReader(q: Query, partition: Partition): FileSystemPartitionIterator = {
     val sft = featureTypes.get(q.getTypeName)
+
     // TODO in the future there may be multiple files
-    val path = new Path(new Path(root, sft.getTypeName), partition.getPaths.get(0).toString)
+    val path = new Path(getPaths(sft.getTypeName, partition).get(0))
 
     if (!fs.exists(path)) {
       new EmptyFsIterator(partition)
@@ -139,8 +140,10 @@ class ParquetFileSystemStorage(root: Path,
     new FileSystemWriter {
       private val sft = featureTypes.get(featureType)
 
-      private val featureRoot = new Path(root, featureType)
-      private val dataPath    = new Path(featureRoot, partition.getPaths.get(0).toString) // TODO in the future there may be multiple files
+      // TODO in the future there may be multiple files
+      val dataPath = new Path(getPaths(sft.getTypeName, partition).get(0))
+//      private val featureRoot = new Path(root, featureType)
+//      private val dataPath    = new Path(featureRoot, partition.getPaths.get(0).toString)
       private val sftConf = {
         val c = new Configuration(conf)
         c.set("sft.name", sft.getTypeName)
@@ -178,5 +181,9 @@ class ParquetFileSystemStorage(root: Path,
     Stupid.makeScheme(sft)
   }
 
-  override def getPartition(name: String): Partition = new LeafStoragePartition(name, Some(fileExtension))
+  override def getPartition(name: String): Partition = new LeafStoragePartition(name)
+
+  import scala.collection.JavaConversions._
+  override def getPaths(typeName: String, partition: Partition): java.util.List[URI] =
+    List(new Path(new Path(root, typeName), partition.getName).suffix(s".$fileExtension").toUri)
 }

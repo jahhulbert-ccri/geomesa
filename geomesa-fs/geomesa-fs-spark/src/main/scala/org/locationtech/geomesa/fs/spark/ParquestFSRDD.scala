@@ -49,9 +49,8 @@ class ParquestFSRDD extends SpatialRDDProvider with LazyLogging {
     val fc = new FilterConverter(origSft).convert(query.getFilter)._1
 
     val storage = ServiceLoader.load(classOf[FileSystemStorageFactory]).iterator().filter(_.canProcess(params)).map(_.build(params)).next()
-    val rootURI = storage.getFileSystemRoot(sft.getTypeName)
-    val inputPaths = PartitionUtils.getPartitionsForQuery(storage, origSft, query).map { p =>
-      new Path(rootURI.toString + "/" + sft.getTypeName + "/" + p.getPaths.get(0))
+    val inputPaths = PartitionUtils.getPartitionsForQuery(storage, origSft, query).flatMap { p =>
+      storage.getPaths(sft.getTypeName, p).map(new Path(_))
     }
 
     // note: file input format requires a job object, but conf gets copied in job object creation,

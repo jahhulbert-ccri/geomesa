@@ -21,6 +21,10 @@ import java.net.URI;
  * or provide a command to do so.
  *
  * Two partitions are equal if they have the same name.
+ *
+ * TODO need to figure out partition vs path for readers and writers
+ * to handle having partition schemes that store a single file at a node
+ * or multiple files.
  */
 abstract public class Partition {
     protected final String name;
@@ -34,7 +38,7 @@ abstract public class Partition {
     }
 
     // TODO this will likely be a list of URIs in the future for non-leaf partition strategies
-    abstract public java.util.List<URI> getPaths();
+//    abstract public java.util.List<URI> getPaths();
 
     @Override
     public boolean equals(Object o) {

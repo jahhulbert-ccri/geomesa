@@ -109,4 +109,8 @@ class ConverterStorage(root: Path,
   override def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = partitionScheme
 
   override def getPartition(name: String): Partition = new LeafStoragePartition(name)
+
+  import scala.collection.JavaConversions._
+  override def getPaths(typeName: String, partition: Partition): java.util.List[URI] =
+    List(new Path(root, partition.getName).toUri)
 }
