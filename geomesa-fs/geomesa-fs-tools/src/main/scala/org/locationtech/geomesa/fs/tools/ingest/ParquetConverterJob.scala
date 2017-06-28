@@ -66,7 +66,9 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     // Dummy reducer to convert to void and shuffle
     job.setNumReduceTasks(reducers)
     job.setReducerClass(classOf[DummyReducer])
+    job.getConfiguration.set("mapred.map.tasks.speculative.execution", "false")
     job.getConfiguration.set("mapred.reduce.tasks.speculative.execution", "false")
+    job.getConfiguration.set("mapreduce.job.reduce.slowstart.completedmaps", ".90")
 
     // Output format
     job.setOutputFormatClass(classOf[SchemeOutputFormat])
@@ -113,6 +115,7 @@ class ParquetConverterJob(sft: SimpleFeatureType,
   }
 
   // TODO probably make a better method for this and extract it to a static utility class
+  // TODO parallelize if the filesystems are not the same
   def copyData(srcRoot: Path, destRoot: Path, sft: SimpleFeatureType, conf: Configuration): Boolean = {
     val typeName = sft.getTypeName
     Command.user.info(s"Job finished...copying data from $srcRoot to $destRoot for type $typeName")
@@ -239,7 +242,7 @@ class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
       }
 
       override def close(context: TaskAttemptContext): Unit = {
-        writer.close(context)
+        if (writer != null) writer.close(context)
       }
     }
   }
