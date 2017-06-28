@@ -108,7 +108,10 @@ class ParquetFileSystemStorage(root: Path,
       import org.locationtech.geomesa.index.conf.QueryHints._
       val transformSft = q.getHints.getTransformSchema.getOrElse(sft)
 
-      val support = new SimpleFeatureReadSupport(transformSft)
+      val support = new SimpleFeatureReadSupport
+      conf.set("sft.spec", SimpleFeatureTypes.encodeType(transformSft, true))
+      conf.set("sft.name", transformSft.getTypeName)
+
       // TODO: push down predicates and partition pruning
       // TODO ensure that transforms are pushed to the ColumnIO in parquet.
       // TODO: Push down full filter that can't be managed

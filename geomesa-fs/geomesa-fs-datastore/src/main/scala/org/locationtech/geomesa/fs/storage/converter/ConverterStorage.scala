@@ -26,7 +26,8 @@ import org.opengis.feature.simple.SimpleFeatureType
 class ConverterStorageFactory extends FileSystemStorageFactory {
   override def canProcess(params: util.Map[String, Serializable]): Boolean = {
     params.containsKey("fs.path") &&
-    params.containsKey("fs.encoding") && params.get("fs.encoding").asInstanceOf[String].equals("converter")
+    params.containsKey("fs.encoding") &&
+      params.get("fs.encoding").asInstanceOf[String].equals("converter")
   }
 
   override def build(params: util.Map[String, Serializable]): FileSystemStorage = {

@@ -17,6 +17,7 @@ import java.util.Date
 import com.vividsolutions.jts.geom.Coordinate
 import org.geotools.feature.simple.SimpleFeatureImpl
 import org.geotools.filter.identity.FeatureIdImpl
+import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.fs.storage.common.{DateScheme, DateTimeZ2Scheme}
@@ -27,6 +28,8 @@ import org.specs2.specification.AllExpectations
 
 @RunWith(classOf[JUnitRunner])
 class PartitionSchemeTest extends Specification with AllExpectations {
+
+  sequential
 
   "PartitionScheme" should {
     import scala.collection.JavaConversions._
@@ -79,6 +82,13 @@ class PartitionSchemeTest extends Specification with AllExpectations {
       val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 1, 20, sft, "dtg", "geom")
       ps.getPartitionName(sf) mustEqual "2017/003/196"
       ps.getPartitionName(sf2) mustEqual "2017/003/051"
+    }
+
+    "return correct date partitions" >> {
+      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, sft, "dtg")
+      val covering = ps.getCoveringPartitions(ECQL.toFilter("dtg >= '2016-08-03T00:00:00.000Z' and dtg < '2016-08-04T00:00:00.000Z'"))
+      covering.size() mustEqual 24
+
     }
 
   }

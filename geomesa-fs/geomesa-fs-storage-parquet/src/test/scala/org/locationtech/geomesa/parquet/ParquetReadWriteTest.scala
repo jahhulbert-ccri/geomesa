@@ -35,20 +35,29 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
 
   sequential
 
+  def transformConf(tsft: SimpleFeatureType) = {
+    val c = new Configuration()
+    c.set("sft.name", tsft.getTypeName)
+    c.set("sft.spec", SimpleFeatureTypes.encodeType(tsft, true))
+    c
+  }
+
   "SimpleFeatureParquetWriter" should {
 
     val f = Files.createTempFile("geomesa", ".parquet")
     val gf = JTSFactoryFinder.getGeometryFactory
     val sft = SimpleFeatureTypes.createType("test", "name:String,age:Int,dtg:Date,*geom:Point:srid=4326")
 
+    val sftConf = {
+      val c = new Configuration()
+      c.set("sft.name", sft.getTypeName)
+      c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
+      c
+    }
+
     "write parquet files" >> {
-      val conf = {
-        val c = new Configuration()
-        c.set("sft.name", sft.getTypeName)
-        c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
-        c
-      }
-      val writer = new SimpleFeatureParquetWriter(new Path(f.toUri), conf)
+
+      val writer = new SimpleFeatureParquetWriter(new Path(f.toUri), sftConf)
 
       val d1 = java.util.Date.from(Instant.parse("2017-01-01T00:00:00Z"))
       val d2 = java.util.Date.from(Instant.parse("2017-01-02T00:00:00Z"))
@@ -65,8 +74,9 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
     }
 
     "read parquet files" >> {
-      val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(sft), new Path(f.toUri))
+      val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport, new Path(f.toUri))
         .withFilter(FilterCompat.NOOP)
+        .withConf(sftConf)
         .build()
 
       val sf = reader.read()
@@ -93,8 +103,9 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
 
     "only read transform columns" >> {
       val tsft = SimpleFeatureTypes.createType("test", "name:String,dtg:Date,*geom:Point:srid=4326")
-      val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
+      val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport, new Path(f.toUri))
         .withFilter(FilterCompat.NOOP)
+        .withConf(transformConf(tsft))
         .build()
       val sf = reader.read()
       sf.getAttributeCount mustEqual 3
@@ -121,8 +132,9 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
       def getFeatures(geoFilter: org.opengis.filter.Filter, tsft: SimpleFeatureType): Seq[SimpleFeature] = {
         val pFilter = FilterCompat.get(new FilterConverter(tsft).convert(geoFilter)._1.get)
 
-        val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport(tsft), new Path(f.toUri))
+        val reader = ParquetReader.builder[SimpleFeature](new SimpleFeatureReadSupport, new Path(f.toUri))
           .withFilter(pFilter)
+          .withConf(transformConf(tsft))
           .build()
 
         val res = mutable.ListBuffer.empty[SimpleFeature]

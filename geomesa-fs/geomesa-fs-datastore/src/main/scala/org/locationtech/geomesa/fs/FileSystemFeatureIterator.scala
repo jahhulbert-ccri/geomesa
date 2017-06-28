@@ -23,32 +23,15 @@ class FileSystemFeatureIterator(fs: FileSystem,
                                 q: Query,
                                 readThreads: Int,
                                 storage: FileSystemStorage) extends java.util.Iterator[SimpleFeature] with AutoCloseable {
-  // TODO: don't list partitions as there could be too many
-  import scala.collection.JavaConversions._
 
-  private val partitions: Seq[Partition] = {
-    // Get the partitions from the partition scheme
-    // if the result is empty, then scan all partitions
-    // TODO: can we short-circuit if the query is outside the bounds
-    val coveringPartitions = partitionScheme.getCoveringPartitions(q.getFilter).map(storage.getPartition)
-    val storagePartitions = storage.listPartitions(sft.getTypeName)
-    if (coveringPartitions.isEmpty) {
-      storagePartitions
-    } else {
-      // TODO: for now we intersect the two to find the real files and not waste too much time
-      coveringPartitions.intersect(storagePartitions)
-    }
-  }
+  private val partitions = PartitionUtils.getPartitionsForQuery(storage, sft, q)
 
-//  private val threadedReader = new ThreadedReader(partitions.map(storage.getPartitionReader(q,_)), readThreads)
   private val threadedReader = new ThreadedReader(storage, partitions, q, readThreads)
   override def hasNext: Boolean = threadedReader.hasNext
   override def next(): SimpleFeature = threadedReader.next()
   override def close(): Unit = threadedReader.close()
 }
 
-
-//class ThreadedReader(readers: Seq[FileSystemPartitionIterator], numThreads: Int)
 class ThreadedReader(storage: FileSystemStorage, partitions: Seq[Partition], q: Query, numThreads: Int)
   extends java.util.Iterator[SimpleFeature] with AutoCloseable with LazyLogging {
 

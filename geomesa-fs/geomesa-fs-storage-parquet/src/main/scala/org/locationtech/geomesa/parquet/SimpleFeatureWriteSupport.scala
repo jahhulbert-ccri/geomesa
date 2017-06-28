@@ -14,7 +14,6 @@ import org.apache.parquet.hadoop.api.WriteSupport
 import org.apache.parquet.hadoop.api.WriteSupport.WriteContext
 import org.apache.parquet.io.api.{Binary, RecordConsumer}
 import org.apache.parquet.schema.MessageType
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 class SimpleFeatureWriteSupport extends WriteSupport[SimpleFeature] {
@@ -26,9 +25,7 @@ class SimpleFeatureWriteSupport extends WriteSupport[SimpleFeature] {
   private var idIndex: java.lang.Integer = _// put the ID at the end of the record ? Why?
 
   override def init(configuration: Configuration): WriteContext = {
-    val spec = configuration.get("sft.spec")
-    val name = configuration.get("sft.name")
-    this.sft = SimpleFeatureTypes.createType(name, spec)
+    this.sft = SimpleFeatureReadSupport.sftFromConf(configuration)
     this.idIndex = sft.getAttributeCount
     this.writers = SimpleFeatureParquetSchema.buildAttributeWriters(sft)
     this.messageType = SimpleFeatureParquetSchema(sft)

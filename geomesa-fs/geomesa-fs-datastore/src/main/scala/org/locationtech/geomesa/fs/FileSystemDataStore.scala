@@ -26,7 +26,7 @@ import scala.collection.JavaConverters._
 
 class FileSystemDataStore(fs: FileSystem,
                           val root: Path,
-                          storage: FileSystemStorage,
+                          val storage: FileSystemStorage,
                           readThreads: Int,
                           namespaceStr: String,
                           conf: Configuration) extends ContentDataStore {

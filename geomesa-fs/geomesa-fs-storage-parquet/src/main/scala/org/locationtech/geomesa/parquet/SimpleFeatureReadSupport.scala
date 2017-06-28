@@ -16,12 +16,16 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.parquet.hadoop.api.{InitContext, ReadSupport}
 import org.apache.parquet.io.api._
 import org.apache.parquet.schema.MessageType
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 // TODO this needs to handle the rest of the filter not handled by parquet?
-class SimpleFeatureReadSupport(sft: SimpleFeatureType) extends ReadSupport[SimpleFeature] {
+class SimpleFeatureReadSupport extends ReadSupport[SimpleFeature] {
+
+  private var sft: SimpleFeatureType = _
 
   override def init(context: InitContext): ReadSupport.ReadContext = {
+    this.sft = SimpleFeatureReadSupport.sftFromConf(context.getConfiguration)
     new ReadSupport.ReadContext(SimpleFeatureParquetSchema(sft), Maps.newHashMap())
   }
 
@@ -30,6 +34,22 @@ class SimpleFeatureReadSupport(sft: SimpleFeatureType) extends ReadSupport[Simpl
                               fileSchema: MessageType,
                               readContext: ReadSupport.ReadContext): RecordMaterializer[SimpleFeature] = {
     new SimpleFeatureRecordMaterializer(sft)
+  }
+}
+
+object SimpleFeatureReadSupport {
+  val SftSpecKey = "sft.spec"
+  val SftNameKey = "sft.name"
+
+  def updateConf(sft: SimpleFeatureType, conf: Configuration) = {
+    conf.set(SftNameKey, sft.getTypeName)
+    conf.set(SftSpecKey, SimpleFeatureTypes.encodeType(sft, includeUserData = true))
+  }
+
+  def sftFromConf(conf: Configuration): SimpleFeatureType = {
+    val spec = conf.get("sft.spec")
+    val name = conf.get("sft.name")
+    SimpleFeatureTypes.createType(name, spec)
   }
 }
 
