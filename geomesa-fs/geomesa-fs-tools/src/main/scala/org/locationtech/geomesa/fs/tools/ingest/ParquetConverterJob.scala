@@ -36,6 +36,7 @@ import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 /**
   * Created by ahulbert on 6/26/17.
@@ -102,29 +103,46 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     }
     statusCallback(job.mapProgress(), written(job), failed(job), true)
 
+    // Do this earlier than the data copy bc its throwing errors and shit
+    val res = (written(job), failed(job))
+
     if (job.isSuccessful) {
       copyData(tempPath, dsPath, sft, job.getConfiguration)
     } else {
       Command.user.error(s"Job failed with state ${job.getStatus.getState} due to: ${job.getStatus.getFailureInfo}")
     }
 
-    (written(job), failed(job))
+    res
   }
 
+  // TODO probably make a better method for this and extract it to a static utility class
   def copyData(srcRoot: Path, destRoot: Path, sft: SimpleFeatureType, conf: Configuration): Boolean = {
     val typeName = sft.getTypeName
     Command.user.info(s"Job finished...copying data from $srcRoot to $destRoot for type $typeName")
 
-    val src = new Path(srcRoot, typeName)
-    val dest = new Path(destRoot, typeName)
-    val copyRes = FileUtil.copy(src.getFileSystem(conf), src, dest.getFileSystem(conf), dest, true, true, conf)
+    val srcFS = srcRoot.getFileSystem(conf)
+    val destFS = destRoot.getFileSystem(conf)
 
-    if (copyRes) {
-      Command.user.info(s"Data copy successful ")
-    } else {
-      Command.user.error(s"Error copying data from $srcRoot to $destRoot for type $typeName")
+    val typePath = new Path(srcRoot, typeName)
+    val foundFiles = srcFS.listFiles(typePath, true)
+
+    val storageFiles = mutable.ListBuffer.empty[Path]
+    while (foundFiles.hasNext) {
+      val f = foundFiles.next()
+      if (!f.isDirectory) {
+        storageFiles += f.getPath
+      }
     }
-    copyRes
+
+    storageFiles.forall { f =>
+      val child = f.toString.replace(srcRoot.toString, "")
+      val target = new Path(destRoot, if (child.startsWith("/")) child.drop(1) else child)
+      logger.info(s"Moving $f to $target")
+      if (!destFS.exists(target.getParent)) {
+        destFS.mkdirs(target.getParent)
+      }
+      FileUtil.copy(srcFS, f, destFS, target, true, true, conf)
+    }
   }
 
 }
