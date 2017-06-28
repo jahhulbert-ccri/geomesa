@@ -28,7 +28,8 @@ class FileSystemDataStore(fs: FileSystem,
                           val root: Path,
                           storage: FileSystemStorage,
                           readThreads: Int,
-                          namespaceStr: String = null) extends ContentDataStore {
+                          namespaceStr: String,
+                          conf: Configuration) extends ContentDataStore {
   import scala.collection.JavaConversions._
 
   setNamespaceURI(namespaceStr)
@@ -59,14 +60,16 @@ class FileSystemDataStoreFactory extends DataStoreFactorySpi {
     val path = new Path(PathParam.lookUp(params).asInstanceOf[String])
     val encoding = EncodingParam.lookUp(params).asInstanceOf[String]
     // TODO: handle errors
+
+    val conf = new Configuration()
     val storage = storageFactory.iterator().filter(_.canProcess(params)).map(_.build(params)).next()
-    val fs = path.getFileSystem(new Configuration())
+    val fs = path.getFileSystem(conf)
 
     val namespace = Option(NamespaceParam.lookUp(params)).map(_.asInstanceOf[String]).orNull
 
     val readThreads = Option(ReadThreadsParam.lookUp(params)).map(_.asInstanceOf[java.lang.Integer])
       .getOrElse(ReadThreadsParam.getDefaultValue.asInstanceOf[java.lang.Integer])
-    new FileSystemDataStore(fs, path, storage, readThreads, namespace)
+    new FileSystemDataStore(fs, path, storage, readThreads, namespace, conf)
   }
 
   override def createNewDataStore(params: util.Map[String, io.Serializable]): DataStore =

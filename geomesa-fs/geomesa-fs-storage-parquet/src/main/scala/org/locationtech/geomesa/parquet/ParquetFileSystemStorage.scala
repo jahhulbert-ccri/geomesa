@@ -15,7 +15,7 @@ import java.{io, util}
 import com.google.common.collect.Maps
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.hadoop.ParquetReader
 import org.geotools.data.Query
@@ -35,7 +35,8 @@ class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
   override def build(params: util.Map[String, io.Serializable]): FileSystemStorage = {
     val path = params.get("fs.path").asInstanceOf[String]
     val root = new Path(path)
-    new ParquetFileSystemStorage(root, root.getFileSystem(new Configuration))
+    val conf = new Configuration
+    new ParquetFileSystemStorage(root, root.getFileSystem(conf), conf)
   }
 }
 
@@ -45,13 +46,14 @@ class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
   * @param fs
   */
 class ParquetFileSystemStorage(root: Path,
-                               fs: FileSystem) extends FileSystemStorage with LazyLogging {
+                               fs: FileSystem,
+                               conf: Configuration) extends FileSystemStorage with LazyLogging {
 
   private val fileExtension = "parquet"
 
-
+  // TODO we don't necessarily want the s3 bucket path to exist...but need to verify we can write
   private val featureTypes = {
-    val files = fs.listStatus(root)
+    val files = if (fs.exists(root)) fs.listStatus(root) else Array.empty[FileStatus]
     val result = Maps.newHashMap[String, SimpleFeatureType]()
     files.map { f =>
       if (!f.isDirectory) Failure(null)
@@ -93,7 +95,6 @@ class ParquetFileSystemStorage(root: Path,
       getPartitionScheme(featureTypes(typeName)).maxDepth()).map(getPartition)
   }
 
-  private val ugh = new Configuration()
   // TODO ask the parition manager the geometry is fully covered?
   override def getPartitionReader(q: Query, partition: Partition): FileSystemPartitionIterator = {
     val sft = featureTypes.get(q.getTypeName)
@@ -122,7 +123,7 @@ class ParquetFileSystemStorage(root: Path,
       logger.info(s"Opening reader for partition $partition")
       val reader = ParquetReader.builder[SimpleFeature](support, path)
         .withFilter(parquetFilter)
-        .withConf(ugh)
+        .withConf(conf)
         .build()
 
       new FilteringIterator(partition, reader, fc._2)
@@ -137,14 +138,14 @@ class ParquetFileSystemStorage(root: Path,
 
       private val featureRoot = new Path(root, featureType)
       private val dataPath    = new Path(featureRoot, partition.getPaths.get(0).toString) // TODO in the future there may be multiple files
-      private val conf = {
-        val c = new Configuration()
+      private val sftConf = {
+        val c = new Configuration(conf)
         c.set("sft.name", sft.getTypeName)
         c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
         c
       }
 
-      private val writer = new SimpleFeatureParquetWriter(dataPath, conf)
+      private val writer = new SimpleFeatureParquetWriter(dataPath, sftConf)
 
       override def write(f: SimpleFeature): Unit = writer.write(f)
 

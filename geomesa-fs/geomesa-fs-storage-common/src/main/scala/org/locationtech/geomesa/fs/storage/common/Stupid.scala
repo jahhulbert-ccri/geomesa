@@ -18,5 +18,5 @@ import org.opengis.feature.simple.SimpleFeatureType
   */
 object Stupid {
 
-  def makeScheme(sft: SimpleFeatureType) = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 5, sft, "dtg", "geom")
+  def makeScheme(sft: SimpleFeatureType) = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, 2, sft, "dtg", "geom")
 }

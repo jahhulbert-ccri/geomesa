@@ -8,13 +8,13 @@
 
 package org.locationtech.geomesa.fs.tools.ingest
 
-import java.io.{File, IOException}
+import java.io.File
 import java.lang.Iterable
 
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FileUtil, Path}
 import org.apache.hadoop.io.{BytesWritable, LongWritable, Text}
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
@@ -36,7 +36,6 @@ import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable
 
 /**
   * Created by ahulbert on 6/26/17.
@@ -47,6 +46,8 @@ class ParquetConverterJob(sft: SimpleFeatureType,
                           tempPath: Path,
                           reducers: Int) extends ConverterIngestJob(sft, converterConfig) with LazyLogging {
 
+  // TODO if no temp path is given just use the final path ? Need to figure that out with mapreduce
+  // TODO will likely need to override the FileSystemOutputFormat check on the output dir
   override def run(dsParams: Map[String, String],
     typeName: String,
     paths: Seq[String],
@@ -82,8 +83,7 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     job.getConfiguration.set("sft.name", sft.getTypeName)
     job.getConfiguration.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
     dsPath.getFileSystem(job.getConfiguration)
-    val temp = new Path(tempPath, "abcisrandom")
-    FileOutputFormat.setOutputPath(job, temp)
+    FileOutputFormat.setOutputPath(job, tempPath)
 
     job.getConfiguration.set("mapreduce.job.user.classpath.first", "true")
 
@@ -102,49 +102,30 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     }
     statusCallback(job.mapProgress(), written(job), failed(job), true)
 
-    if (!job.isSuccessful) {
-      Command.user.error(s"Job failed with state ${job.getStatus.getState} due to: ${job.getStatus.getFailureInfo}")
+    if (job.isSuccessful) {
+      copyData(tempPath, dsPath, sft, job.getConfiguration)
     } else {
-      if (!sync(new Path(temp, sft.getTypeName), new Path(dsPath, sft.getTypeName), job.getConfiguration)) {
-        Command.user.error(s"Error syncing")
-      }
+      Command.user.error(s"Job failed with state ${job.getStatus.getState} due to: ${job.getStatus.getFailureInfo}")
     }
 
     (written(job), failed(job))
   }
 
-  // TODO probably make a better method for this and extract it to a static utility class
-  def sync(src: Path, dest : Path, conf: Configuration): Boolean = {
-    logger.info(s"importing from ${src.toString} to  ${dest.toString} ")
-    val srcPrefix = src.toString
-    val fs = src.getFileSystem(conf)
-    val t1 = fs.listFiles(src, true)
-    val files = mutable.ListBuffer.empty[Path]
-    while (t1.hasNext) {
-      val t = t1.next()
-      if (! t.isDirectory) {
-        files += t.getPath
-      }
-    }
-    files.foreach { f =>
-      val child = f.toString.replace(srcPrefix, "")
-      val target = new Path(dest, if (child.startsWith("/")) child.drop(1) else child)
-      logger.info(s"Moving $f to $target")
-      try {
-        if (!fs.exists(target.getParent)) {
-          logger.info(s"mkdir $target")
-          fs.mkdirs(target.getParent)
-        }
-        if (!fs.rename(f, target)) throw new IOException(s"Unable to move $f to $target")
-      } catch {
-        case e: Exception =>
-          logger.error(s" Error moving ${f.toString} to ${target.toString}", e)
-          return false
-      }
-    }
-    true
-  }
+  def copyData(srcRoot: Path, destRoot: Path, sft: SimpleFeatureType, conf: Configuration): Boolean = {
+    val typeName = sft.getTypeName
+    Command.user.info(s"Job finished...copying data from $srcRoot to $destRoot for type $typeName")
 
+    val src = new Path(srcRoot, typeName)
+    val dest = new Path(destRoot, typeName)
+    val copyRes = FileUtil.copy(src.getFileSystem(conf), src, dest.getFileSystem(conf), dest, true, true, conf)
+
+    if (copyRes) {
+      Command.user.info(s"Data copy successful ")
+    } else {
+      Command.user.error(s"Error copying data from $srcRoot to $destRoot for type $typeName")
+    }
+    copyRes
+  }
 
 }
 
