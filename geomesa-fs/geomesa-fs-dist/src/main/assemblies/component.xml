@@ -12,6 +12,13 @@
             <useTransitiveFiltering>false</useTransitiveFiltering> <!-- transitive filtering applies to excludes too so disable it -->
             <excludes>
                 <exclude>org.locationtech.geomesa:*:tar.gz:*</exclude>
+                <exclude>org.locationtech.geomesa:geomesa-web-core*</exclude>
+                <exclude>org.locationtech.geomesa:geomesa-process-wps*</exclude>
+                <exclude>org.locationtech.geomesa:geomesa-spark*</exclude>
+                <exclude>org.locationtech.geomesa:geomesa-fs-spark*</exclude>
+                <exclude>org.locationtech.geomesa:geomesa-stream*</exclude>
+                <exclude>org.locationtech.geomesa:geomesa-geojson*</exclude>
+                <exclude>com.google.guava:guava</exclude> <!-- Guava conflicts with Hadoop 2.x which provides guava 11.0.2-->
             </excludes>
         </dependencySet>
         <dependencySet>

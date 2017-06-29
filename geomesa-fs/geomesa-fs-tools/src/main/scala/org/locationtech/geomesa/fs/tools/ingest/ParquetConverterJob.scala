@@ -19,6 +19,7 @@ import org.apache.hadoop.io.{BytesWritable, LongWritable, Text}
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.lib.output.{FileOutputCommitter, FileOutputFormat}
+import org.apache.hadoop.tools.{DistCp, DistCpOptions}
 import org.apache.parquet.hadoop.ParquetOutputFormat
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.geotools.data.DataUtilities
@@ -68,6 +69,8 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     job.setReducerClass(classOf[DummyReducer])
     job.getConfiguration.set("mapred.map.tasks.speculative.execution", "false")
     job.getConfiguration.set("mapred.reduce.tasks.speculative.execution", "false")
+
+    // Ensure that the reducers don't start to early (default is at 0.05 which takes all the map slots and isn't needed)
     job.getConfiguration.set("mapreduce.job.reduce.slowstart.completedmaps", ".90")
 
     // Output format
@@ -106,12 +109,33 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     val res = (written(job), failed(job))
 
     if (job.isSuccessful) {
-      copyData(tempPath, dsPath, sft, job.getConfiguration)
+      distCopy(tempPath, dsPath, sft, job.getConfiguration)
     } else {
       Command.user.error(s"Job failed with state ${job.getStatus.getState} due to: ${job.getStatus.getFailureInfo}")
     }
 
     res
+  }
+
+  def distCopy(srcRoot: Path, dest: Path, sft: SimpleFeatureType, conf: Configuration): Boolean = {
+    val typeName = sft.getTypeName
+    val typePath = new Path(srcRoot, typeName)
+    val destTypePath = new Path(dest, typeName)
+
+    Command.user.info(s"Attempting to distcp $typePath to $destTypePath")
+
+    val opts = new DistCpOptions(List(typePath), destTypePath)
+    opts.setAppend(false)
+    opts.setOverwrite(true)
+    val job = new DistCp(new Configuration, opts).execute()
+
+    val success = job.waitForCompletion(true)
+    if (success) {
+      Command.user.info(s"Successfully copied data to $dest")
+    } else {
+      Command.user.error(s"failed to copy data to $dest")
+    }
+    success
   }
 
   // TODO probably make a better method for this and extract it to a static utility class

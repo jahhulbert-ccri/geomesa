@@ -37,7 +37,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <dependency>
+<!--        <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
             <scope>provided</scope>
@@ -48,7 +48,7 @@
             <version>${spark.version}</version>
             <scope>provided</scope>
         </dependency>
-
+-->
         <!-- test dependencies -->
         <dependency>
             <groupId>org.specs2</groupId>
