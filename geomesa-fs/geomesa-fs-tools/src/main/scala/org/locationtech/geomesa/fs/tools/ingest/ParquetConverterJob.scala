@@ -30,11 +30,10 @@ import org.locationtech.geomesa.features.SerializationOption.SerializationOption
 import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.fs.storage.api.PartitionScheme
 import org.locationtech.geomesa.jobs.JobUtils
-import org.locationtech.geomesa.jobs.mapreduce.{FileStreamInputFormat, GeoMesaOutputFormat}
-import org.locationtech.geomesa.parquet.SimpleFeatureWriteSupport
+import org.locationtech.geomesa.jobs.mapreduce.GeoMesaOutputFormat
+import org.locationtech.geomesa.parquet.{SimpleFeatureReadSupport, SimpleFeatureWriteSupport}
 import org.locationtech.geomesa.tools.Command
 import org.locationtech.geomesa.tools.ingest.ConverterIngestJob
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.collection.JavaConversions._
@@ -84,8 +83,7 @@ class ParquetConverterJob(sft: SimpleFeatureType,
 
     ParquetOutputFormat.setCompression(job, CompressionCodecName.SNAPPY)
     ParquetOutputFormat.setWriteSupportClass(job, classOf[SimpleFeatureWriteSupport])
-    job.getConfiguration.set("sft.name", sft.getTypeName)
-    job.getConfiguration.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
+    ParquetConverterJob.setSimpleFeatureType(job.getConfiguration, sft)
 
     FileOutputFormat.setOutputPath(job, tempPath.getOrElse(dsPath))
 
@@ -173,13 +171,14 @@ class ParquetConverterJob(sft: SimpleFeatureType,
 }
 
 object ParquetConverterJob {
-  import org.locationtech.geomesa.fs.storage.common.PartitionScheme.PartitionSchemeKey
-  def setPartitionScheme(conf: Configuration, ps: PartitionScheme): Unit = {
-    conf.set(PartitionSchemeKey, ps.toString)
+  def setSimpleFeatureType(conf: Configuration, sft: SimpleFeatureType): Unit = {
+    // Validate that there is a partition scheme
+    org.locationtech.geomesa.fs.storage.common.PartitionScheme.extractFromSft(sft)
+    SimpleFeatureReadSupport.updateConf(sft, conf)
   }
 
-  def getPartitionScheme(conf: Configuration): String = {
-    conf.get(PartitionSchemeKey)
+  def getSimpleFeatureType(conf: Configuration): SimpleFeatureType = {
+    SimpleFeatureReadSupport.sftFromConf(conf)
   }
 }
 
@@ -194,11 +193,9 @@ class IngestMapper extends Mapper[LongWritable, SimpleFeature, Text, BytesWritab
 
   override def setup(context: Context): Unit = {
     super.setup(context)
-    val spec = context.getConfiguration.get(FileStreamInputFormat.SftKey)
-    val name = context.getConfiguration.get(FileStreamInputFormat.TypeNameKey)
-    val sft = SimpleFeatureTypes.createType(name, spec)
+    val sft = ParquetConverterJob.getSimpleFeatureType(context.getConfiguration)
     serializer = new KryoFeatureSerializer(sft, SerializationOptions.withUserData)
-    partitionScheme = org.locationtech.geomesa.fs.storage.common.PartitionScheme(sft, ParquetConverterJob.getPartitionScheme(context.getConfiguration))
+    partitionScheme = org.locationtech.geomesa.fs.storage.common.PartitionScheme.extractFromSft(sft)
 
     written = context.getCounter(GeoMesaOutputFormat.Counters.Group, GeoMesaOutputFormat.Counters.Written)
   }
@@ -224,9 +221,7 @@ class DummyReducer extends Reducer[Text, BytesWritable, Void, SimpleFeature] {
 
   override def setup(context: Context): Unit = {
     super.setup(context)
-    val spec = context.getConfiguration.get(FileStreamInputFormat.SftKey)
-    val name = context.getConfiguration.get(FileStreamInputFormat.TypeNameKey)
-    val sft = SimpleFeatureTypes.createType(name, spec)
+    val sft = ParquetConverterJob.getSimpleFeatureType(context.getConfiguration)
     serializer = new KryoFeatureSerializer(sft, SerializationOptions.withUserData)
     reduced = context.getCounter(GeoMesaOutputFormat.Counters.Group, "reduced")
   }
@@ -243,13 +238,12 @@ class DummyReducer extends Reducer[Text, BytesWritable, Void, SimpleFeature] {
 class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
   override def getRecordWriter(context: TaskAttemptContext): RecordWriter[Void, SimpleFeature] = {
 
-    val spec = context.getConfiguration.get(FileStreamInputFormat.SftKey)
-    val name = context.getConfiguration.get(FileStreamInputFormat.TypeNameKey)
-    val sft = SimpleFeatureTypes.createType(name, spec)
+    val sft = ParquetConverterJob.getSimpleFeatureType(context.getConfiguration)
+    val name = sft.getTypeName
 
     new RecordWriter[Void, SimpleFeature] with LazyLogging {
 
-      private val partitionScheme = org.locationtech.geomesa.fs.storage.common.PartitionScheme(sft, ParquetConverterJob.getPartitionScheme(context.getConfiguration))
+      private val partitionScheme = org.locationtech.geomesa.fs.storage.common.PartitionScheme.extractFromSft(sft)
 
       var curPartition: String = _
       var writer: RecordWriter[Void, SimpleFeature] = _
