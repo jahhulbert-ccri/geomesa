@@ -12,6 +12,7 @@ package org.locationtech.geomesa.parquet
 import java.util
 
 import com.google.common.collect.Maps
+import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import org.apache.hadoop.conf.Configuration
 import org.apache.parquet.hadoop.api.{InitContext, ReadSupport}
 import org.apache.parquet.io.api._
@@ -38,18 +39,21 @@ class SimpleFeatureReadSupport extends ReadSupport[SimpleFeature] {
 }
 
 object SimpleFeatureReadSupport {
-  val SftSpecKey = "sft.spec"
-  val SftNameKey = "sft.name"
+  // HACK we need this for now
+  val SftNameKey = "geomesa.sft.name"
+  val SftConfKey = "geomesa.sft.conf"
+
 
   def updateConf(sft: SimpleFeatureType, conf: Configuration) = {
     conf.set(SftNameKey, sft.getTypeName)
-    conf.set(SftSpecKey, SimpleFeatureTypes.encodeType(sft, includeUserData = true))
+    conf.set(SftConfKey, SimpleFeatureTypes.toConfig(sft).root().render(ConfigRenderOptions.concise()))
   }
 
   def sftFromConf(conf: Configuration): SimpleFeatureType = {
-    val spec = conf.get("sft.spec")
-    val name = conf.get("sft.name")
-    SimpleFeatureTypes.createType(name, spec)
+    val name = conf.get(SftNameKey)
+    val confStr = conf.get(SftConfKey)
+    val config = ConfigFactory.parseString(confStr)
+    SimpleFeatureTypes.createType(config, Some(name), Some(s"geomesa.sfts.$name"))
   }
 }
 

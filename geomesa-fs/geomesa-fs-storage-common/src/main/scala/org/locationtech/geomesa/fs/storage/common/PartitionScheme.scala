@@ -65,7 +65,8 @@ object PartitionOpts {
 
 
 object PartitionScheme {
-  val PartitionSchemeKey = "fs.partition-scheme.config"
+  // Must begin with GeoMesa in order to get incoded
+  val PartitionSchemeKey = "geomesa.fs.partition-scheme.config"
   val PartitionOptsPrefix = "fs.partition-scheme.opts."
   val PartitionSchemeParam = new Param("fs.partition-scheme.name", classOf[String], "Partition scheme name", false)
 

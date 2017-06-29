@@ -37,8 +37,7 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
 
   def transformConf(tsft: SimpleFeatureType) = {
     val c = new Configuration()
-    c.set("sft.name", tsft.getTypeName)
-    c.set("sft.spec", SimpleFeatureTypes.encodeType(tsft, true))
+    SimpleFeatureReadSupport.updateConf(tsft, c)
     c
   }
 
@@ -50,8 +49,7 @@ class ParquetReadWriteTest extends Specification with AllExpectations {
 
     val sftConf = {
       val c = new Configuration()
-      c.set("sft.name", sft.getTypeName)
-      c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
+      SimpleFeatureReadSupport.updateConf(sft, c)
       c
     }
 

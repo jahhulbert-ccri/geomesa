@@ -51,6 +51,7 @@ class ParquetFileSystemStorage(root: Path,
                                conf: Configuration) extends FileSystemStorage with LazyLogging {
 
   private val fileExtension = "parquet"
+  private val schemeConfFile = "schema.conf"
 
   // TODO we don't necessarily want the s3 bucket path to exist...but need to verify we can write
   private val featureTypes = {
@@ -59,9 +60,9 @@ class ParquetFileSystemStorage(root: Path,
     files.map { f =>
       if (!f.isDirectory) Failure(null)
       else Try {
-        val in = fs.open(new Path(f.getPath, "schema.sft"))
-        val encodedSFT = in.readUTF()
-        SimpleFeatureTypes.createType(f.getPath.getName, encodedSFT)
+        val in = fs.open(new Path(f.getPath, schemeConfFile))
+        val sftConf = ConfigFactory.parseString(in.readUTF())
+        SimpleFeatureTypes.createType(sftConf, Some(f.getPath.getName))
       }
     }.collect { case Success(s) => s }.foreach { sft => result.put(sft.getTypeName, sft) }
     result
@@ -111,8 +112,7 @@ class ParquetFileSystemStorage(root: Path,
       val transformSft = q.getHints.getTransformSchema.getOrElse(sft)
 
       val support = new SimpleFeatureReadSupport
-      conf.set("sft.spec", SimpleFeatureTypes.encodeType(transformSft, true))
-      conf.set("sft.name", transformSft.getTypeName)
+      SimpleFeatureReadSupport.updateConf(transformSft, conf)
 
       // TODO: push down predicates and partition pruning
       // TODO ensure that transforms are pushed to the ColumnIO in parquet.
@@ -146,8 +146,7 @@ class ParquetFileSystemStorage(root: Path,
 
       private val sftConf = {
         val c = new Configuration(conf)
-        c.set("sft.name", sft.getTypeName)
-        c.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
+        SimpleFeatureReadSupport.updateConf(sft, c)
         c
       }
 
@@ -164,8 +163,8 @@ class ParquetFileSystemStorage(root: Path,
     org.locationtech.geomesa.fs.storage.common.PartitionScheme.addToSft(sft, partitionScheme)
     val path = new Path(root, sft.getTypeName)
     fs.mkdirs(path)
-    val encoded = SimpleFeatureTypes.encodeType(sft, includeUserData = true)
-    val out = fs.create(new Path(path, "schema.sft"))
+    val encoded = SimpleFeatureTypes.toConfigString(sft)
+    val out = fs.create(new Path(path, schemeConfFile))
     out.writeUTF(encoded)
     out.hflush()
     out.hsync()
