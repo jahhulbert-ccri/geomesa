@@ -53,7 +53,7 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
         libjarsPaths,
         params.threads,
         new Path(params.path),
-        new Path(params.tempDir),
+        Option(params.tempDir).map(new Path(_)),
         params.reducers)
     ingest.run()
   }
@@ -63,7 +63,7 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
 // TODO implement datetime format, etc here for ingest or create type maybe?
 @Parameters(commandDescription = "Ingest/convert various file formats into GeoMesa")
 class FsIngestParams extends IngestParams with FsParams {
-  @Parameter(names = Array("--temp-path"), description = "Path to temp dir for parquet ingest", required = true)
+  @Parameter(names = Array("--temp-path"), description = "Path to temp dir for parquet ingest (if null se don't use temp)", required = false)
   var tempDir: String = _
 
   @Parameter(names = Array("--num-reducers"), description = "Num reducers", required = true)

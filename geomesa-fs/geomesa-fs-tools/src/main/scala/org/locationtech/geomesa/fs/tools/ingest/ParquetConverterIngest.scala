@@ -23,7 +23,7 @@ class ParquetConverterIngest(sft: SimpleFeatureType,
                              libjarsPaths: Iterator[() => Seq[File]],
                              numLocalThreads: Int,
                              dsPath: Path,
-                             tempPath: Path,
+                             tempPath: Option[Path],
                              reducers: Int)
   extends ConverterIngest(sft, dsParams, converterConfig, inputs, libjarsFile, libjarsPaths, numLocalThreads) {
 

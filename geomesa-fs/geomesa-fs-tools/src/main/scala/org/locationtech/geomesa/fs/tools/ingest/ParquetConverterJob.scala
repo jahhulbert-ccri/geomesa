@@ -42,7 +42,7 @@ import scala.collection.mutable
 class ParquetConverterJob(sft: SimpleFeatureType,
                           converterConfig: Config,
                           dsPath: Path,
-                          tempPath: Path,
+                          tempPath: Option[Path],
                           reducers: Int) extends ConverterIngestJob(sft, converterConfig) with LazyLogging {
 
   // TODO if no temp path is given just use the final path ? Need to figure that out with mapreduce
@@ -73,6 +73,9 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     // Ensure that the reducers don't start to early (default is at 0.05 which takes all the map slots and isn't needed)
     job.getConfiguration.set("mapreduce.job.reduce.slowstart.completedmaps", ".90")
 
+    job.getConfiguration.set("mapreduce.job.user.classpath.first", "true")
+
+
     // Output format
     job.setOutputFormatClass(classOf[SchemeOutputFormat])
     job.setOutputKeyClass(classOf[Void])
@@ -85,10 +88,8 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     ParquetOutputFormat.setWriteSupportClass(job, classOf[SimpleFeatureWriteSupport])
     job.getConfiguration.set("sft.name", sft.getTypeName)
     job.getConfiguration.set("sft.spec", SimpleFeatureTypes.encodeType(sft, true))
-    dsPath.getFileSystem(job.getConfiguration)
-    FileOutputFormat.setOutputPath(job, tempPath)
 
-    job.getConfiguration.set("mapreduce.job.user.classpath.first", "true")
+    FileOutputFormat.setOutputPath(job, tempPath.getOrElse(dsPath))
 
     FileInputFormat.setInputPaths(job, paths.mkString(","))
     configureJob(job)
@@ -109,7 +110,9 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     val res = (written(job), failed(job))
 
     if (job.isSuccessful) {
-      distCopy(tempPath, dsPath, sft, job.getConfiguration)
+      if (tempPath.isDefined) {
+        distCopy(tempPath.get, dsPath, sft, job.getConfiguration)
+      }
     } else {
       Command.user.error(s"Job failed with state ${job.getStatus.getState} due to: ${job.getStatus.getFailureInfo}")
     }
