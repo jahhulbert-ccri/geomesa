@@ -47,8 +47,6 @@ class FileSystemDataStoreTest extends Specification {
       PartitionScheme.addToSft(sft, partitionScheme)
       ds.createSchema(sft)
 
-
-
       val fw = ds.getFeatureWriterAppend("test", Transaction.AUTO_COMMIT)
       val s = fw.next()
       s.getIdentifier.asInstanceOf[FeatureIdImpl].setID(sf.getID)

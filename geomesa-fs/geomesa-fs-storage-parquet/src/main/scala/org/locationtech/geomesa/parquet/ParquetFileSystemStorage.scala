@@ -12,7 +12,6 @@ package org.locationtech.geomesa.parquet
 import java.net.URI
 import java.{io, util}
 
-import com.google.common.collect.Maps
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
@@ -25,6 +24,7 @@ import org.locationtech.geomesa.fs.storage.common.LeafStoragePartition
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
@@ -51,20 +51,21 @@ class ParquetFileSystemStorage(root: Path,
                                conf: Configuration) extends FileSystemStorage with LazyLogging {
 
   private val fileExtension = "parquet"
-  private val schemeConfFile = "schema.conf"
+  private val schemeConfFile = "schema.sft"
 
   // TODO we don't necessarily want the s3 bucket path to exist...but need to verify we can write
   private val featureTypes = {
     val files = if (fs.exists(root)) fs.listStatus(root) else Array.empty[FileStatus]
-    val result = Maps.newHashMap[String, SimpleFeatureType]()
+    val result = mutable.HashMap.empty[String, SimpleFeatureType]
     files.map { f =>
       if (!f.isDirectory) Failure(null)
       else Try {
         val in = fs.open(new Path(f.getPath, schemeConfFile))
         val sftConf = ConfigFactory.parseString(in.readUTF())
-        SimpleFeatureTypes.createType(sftConf, Some(f.getPath.getName))
+        SimpleFeatureTypes.createType(sftConf)
       }
-    }.collect { case Success(s) => s }.foreach { sft => result.put(sft.getTypeName, sft) }
+    }.collect { case Success(s) => s }
+      .foreach { sft => result += sft.getTypeName -> sft }
     result
   }
 
@@ -73,7 +74,7 @@ class ParquetFileSystemStorage(root: Path,
     featureTypes.values.toList
   }
 
-  override def getFeatureType(name: String): SimpleFeatureType =  featureTypes.get(name)
+  override def getFeatureType(name: String): SimpleFeatureType =  featureTypes(name)
 
   private def buildPartitionList(path: Path, prefix: String, curDepth: Int, maxDepth: Int): List[String] = {
     if (curDepth > maxDepth) return List.empty[String]
@@ -99,7 +100,7 @@ class ParquetFileSystemStorage(root: Path,
 
   // TODO ask the parition manager the geometry is fully covered?
   override def getPartitionReader(q: Query, partition: Partition): FileSystemPartitionIterator = {
-    val sft = featureTypes.get(q.getTypeName)
+    val sft = featureTypes(q.getTypeName)
 
     // TODO in the future there may be multiple files
     val path = new Path(getPaths(sft.getTypeName, partition).get(0))
@@ -139,7 +140,7 @@ class ParquetFileSystemStorage(root: Path,
 
   override def getWriter(featureType: String, partition: Partition): FileSystemWriter =
     new FileSystemWriter {
-      private val sft = featureTypes.get(featureType)
+      private val sft = featureTypes(featureType)
 
       // TODO in the future there may be multiple files
       val dataPath = new Path(getPaths(sft.getTypeName, partition).get(0))
@@ -163,7 +164,7 @@ class ParquetFileSystemStorage(root: Path,
     org.locationtech.geomesa.fs.storage.common.PartitionScheme.addToSft(sft, partitionScheme)
     val path = new Path(root, sft.getTypeName)
     fs.mkdirs(path)
-    val encoded = SimpleFeatureTypes.toConfigString(sft)
+    val encoded = SimpleFeatureTypes.toConfigString(sft, includeUserData = true, concise = false, includePrefix = false)
     val out = fs.create(new Path(path, schemeConfFile))
     out.writeUTF(encoded)
     out.hflush()
@@ -175,7 +176,7 @@ class ParquetFileSystemStorage(root: Path,
   override def getFileSystemRoot(typeName: String): URI = root.toUri
 
   override def getPartitionScheme(typeName: String): PartitionScheme = {
-    val sft = featureTypes.get(typeName)
+    val sft = featureTypes(typeName)
     val conf = sft.getUserData.get(org.locationtech.geomesa.fs.storage.common.PartitionScheme.PartitionSchemeKey).asInstanceOf[String]
     org.locationtech.geomesa.fs.storage.common.PartitionScheme(sft, ConfigFactory.parseString(conf))
   }

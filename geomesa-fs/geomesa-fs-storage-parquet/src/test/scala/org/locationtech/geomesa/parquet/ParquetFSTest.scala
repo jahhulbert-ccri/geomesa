@@ -64,8 +64,7 @@ class ParquetFSTest extends Specification with AllExpectations {
       List[SimpleFeature](sf1, sf2, sf3)
         .zip(partitions)
         .groupBy(_._2)
-        .foreach { case (partition, features) =>
-          val writer = fsStorage.getWriter(sft.getTypeName, fsStorage.getPartition(partition))
+        .foreach { case (partition, features) => val writer = fsStorage.getWriter(sft.getTypeName, fsStorage.getPartition(partition))
           features.map(_._1).foreach(writer.write)
           writer.close()
         }

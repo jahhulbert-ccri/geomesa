@@ -19,12 +19,11 @@
     <dependencies>
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-fs-datastore_2.11</artifactId>
-            <version>${project.version}</version>
+            <artifactId>geomesa-fs-datastore_${scala.binary.version}</artifactId>
         </dependency>
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-tools_2.11</artifactId>
+            <artifactId>geomesa-tools_${scala.binary.version}</artifactId>
         </dependency>
         <dependency>
             <groupId>org.geotools</groupId>
@@ -49,7 +48,7 @@
         </dependency>
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-fs-storage-parquet_2.11</artifactId>
+            <artifactId>geomesa-fs-storage-parquet_${scala.binary.version}</artifactId>
         </dependency>
 
         <!-- test deps -->
