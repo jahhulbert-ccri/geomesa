@@ -8,6 +8,8 @@
 
 package org.locationtech.geomesa.fs
 
+import java.time.temporal.ChronoUnit
+
 import com.vividsolutions.jts.geom.Coordinate
 import org.apache.commons.io.FileUtils
 import org.geotools.data.{DataStoreFinder, Query, Transaction}
@@ -15,6 +17,7 @@ import org.geotools.filter.identity.FeatureIdImpl
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.features.ScalaSimpleFeature
+import org.locationtech.geomesa.fs.storage.common.{DateTimeScheme, PartitionScheme}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.filter.Filter
 import org.specs2.mutable.Specification
@@ -40,6 +43,8 @@ class FileSystemDataStoreTest extends Specification {
       val ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> dir.getPath,
         "fs.encoding" -> "parquet"))
+      val partitionScheme = new DateTimeScheme("yyyy/MM", ChronoUnit.MONTHS, 1, sft, "dtg")
+      PartitionScheme.addToSft(sft, partitionScheme)
       ds.createSchema(sft)
 
 

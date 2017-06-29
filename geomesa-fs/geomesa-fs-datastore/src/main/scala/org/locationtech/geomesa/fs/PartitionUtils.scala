@@ -22,7 +22,7 @@ object PartitionUtils {
     // Get the partitions from the partition scheme
     // if the result is empty, then scan all partitions
     // TODO: can we short-circuit if the query is outside the bounds
-    val partitionScheme = storage.getPartitionScheme(sft)
+    val partitionScheme = storage.getPartitionScheme(sft.getTypeName)
     val coveringPartitions = partitionScheme.getCoveringPartitions(q.getFilter).map(storage.getPartition)
     val storagePartitions = storage.listPartitions(sft.getTypeName)
     if (coveringPartitions.isEmpty) {

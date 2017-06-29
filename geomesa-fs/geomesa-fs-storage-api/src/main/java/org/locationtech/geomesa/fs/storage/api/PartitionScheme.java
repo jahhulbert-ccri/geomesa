@@ -9,6 +9,7 @@
 package org.locationtech.geomesa.fs.storage.api;
 
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.Filter;
 
 public interface PartitionScheme {
@@ -33,4 +34,8 @@ public interface PartitionScheme {
      * @return the max depth this partition scheme goes to
      */
     int maxDepth();
+
+    String toString();
+
+    PartitionScheme fromString(SimpleFeatureType sft, String s);
 }

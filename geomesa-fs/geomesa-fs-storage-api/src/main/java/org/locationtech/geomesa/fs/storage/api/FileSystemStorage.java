@@ -21,7 +21,7 @@ public interface FileSystemStorage {
     SimpleFeatureType getFeatureType(String typeName);
 
     void createNewFeatureType(SimpleFeatureType sft, PartitionScheme scheme);
-    PartitionScheme getPartitionScheme(SimpleFeatureType sft);
+    PartitionScheme getPartitionScheme(String typeName);
 
     URI getFileSystemRoot(String typeName);
 

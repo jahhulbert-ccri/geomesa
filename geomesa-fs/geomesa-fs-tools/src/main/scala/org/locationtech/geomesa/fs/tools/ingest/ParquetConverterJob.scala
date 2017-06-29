@@ -16,9 +16,11 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileUtil, Path}
 import org.apache.hadoop.io.{BytesWritable, LongWritable, Text}
+import org.apache.hadoop.mapred.InvalidJobConfException
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.lib.output.{FileOutputCommitter, FileOutputFormat}
+import org.apache.hadoop.mapreduce.security.TokenCache
 import org.apache.hadoop.tools.{DistCp, DistCpOptions}
 import org.apache.parquet.hadoop.ParquetOutputFormat
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
@@ -27,7 +29,6 @@ import org.geotools.factory.Hints
 import org.locationtech.geomesa.features.SerializationOption.SerializationOptions
 import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.fs.storage.api.PartitionScheme
-import org.locationtech.geomesa.fs.storage.common.Stupid
 import org.locationtech.geomesa.jobs.JobUtils
 import org.locationtech.geomesa.jobs.mapreduce.{FileStreamInputFormat, GeoMesaOutputFormat}
 import org.locationtech.geomesa.parquet.SimpleFeatureWriteSupport
@@ -45,8 +46,6 @@ class ParquetConverterJob(sft: SimpleFeatureType,
                           tempPath: Option[Path],
                           reducers: Int) extends ConverterIngestJob(sft, converterConfig) with LazyLogging {
 
-  // TODO if no temp path is given just use the final path ? Need to figure that out with mapreduce
-  // TODO will likely need to override the FileSystemOutputFormat check on the output dir
   override def run(dsParams: Map[String, String],
     typeName: String,
     paths: Seq[String],
@@ -74,7 +73,6 @@ class ParquetConverterJob(sft: SimpleFeatureType,
     job.getConfiguration.set("mapreduce.job.reduce.slowstart.completedmaps", ".90")
 
     job.getConfiguration.set("mapreduce.job.user.classpath.first", "true")
-
 
     // Output format
     job.setOutputFormatClass(classOf[SchemeOutputFormat])
@@ -174,6 +172,17 @@ class ParquetConverterJob(sft: SimpleFeatureType,
 
 }
 
+object ParquetConverterJob {
+  import org.locationtech.geomesa.fs.storage.common.PartitionScheme.PartitionSchemeKey
+  def setPartitionScheme(conf: Configuration, ps: PartitionScheme): Unit = {
+    conf.set(PartitionSchemeKey, ps.toString)
+  }
+
+  def getPartitionScheme(conf: Configuration): String = {
+    conf.get(PartitionSchemeKey)
+  }
+}
+
 class IngestMapper extends Mapper[LongWritable, SimpleFeature, Text, BytesWritable] with LazyLogging {
 
   type Context = Mapper[LongWritable, SimpleFeature, Text, BytesWritable]#Context
@@ -189,7 +198,7 @@ class IngestMapper extends Mapper[LongWritable, SimpleFeature, Text, BytesWritab
     val name = context.getConfiguration.get(FileStreamInputFormat.TypeNameKey)
     val sft = SimpleFeatureTypes.createType(name, spec)
     serializer = new KryoFeatureSerializer(sft, SerializationOptions.withUserData)
-    partitionScheme = Stupid.makeScheme(sft)
+    partitionScheme = org.locationtech.geomesa.fs.storage.common.PartitionScheme(sft, ParquetConverterJob.getPartitionScheme(context.getConfiguration))
 
     written = context.getCounter(GeoMesaOutputFormat.Counters.Group, GeoMesaOutputFormat.Counters.Written)
   }
@@ -240,7 +249,8 @@ class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
 
     new RecordWriter[Void, SimpleFeature] with LazyLogging {
 
-      private val partitionScheme = Stupid.makeScheme(sft)
+      private val partitionScheme = org.locationtech.geomesa.fs.storage.common.PartitionScheme(sft, ParquetConverterJob.getPartitionScheme(context.getConfiguration))
+
       var curPartition: String = _
       var writer: RecordWriter[Void, SimpleFeature] = _
       var sentToParquet: Counter = context.getCounter(GeoMesaOutputFormat.Counters.Group, "sentToParquet")
@@ -272,5 +282,13 @@ class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
         if (writer != null) writer.close(context)
       }
     }
+  }
+
+  override def checkOutputSpecs(job: JobContext): Unit = {
+    // Ensure that the output directory is set and not already there
+    val outDir = FileOutputFormat.getOutputPath(job)
+    if (outDir == null) throw new InvalidJobConfException("Output directory not set.")
+    // get delegation token for outDir's file system
+    TokenCache.obtainTokensForNamenodes(job.getCredentials, Array[Path](outDir), job.getConfiguration)
   }
 }

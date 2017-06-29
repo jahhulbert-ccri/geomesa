@@ -15,6 +15,7 @@ import java.time.{Instant, ZoneOffset}
 import java.util
 import java.util.Date
 
+import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import com.vividsolutions.jts.geom.{Geometry, Point}
 import org.geotools.data.DataAccessFactory.Param
 import org.locationtech.geomesa.filter.FilterHelper.extractGeometries
@@ -31,31 +32,50 @@ object PartitionOpts {
   val DateTimeFormatOpt = "datetime-format"
   val StepUnitOpt = "step-unit"
   val StepOpt = "step"
-  val PartitionAttribute = "partition-attribute"
+  val DtgAttribute = "dtg-attribute"
+  val GeomAttribute = "geom-attribute"
+  val Z2Bits = "z2-bits"
 
-  def parseDateTimeFormat(opts: Map[String, String]): DateTimeFormatter = {
+  def parseDateTimeFormat(opts: Map[String, String]): String = {
     val fmtStr = opts(DateTimeFormatOpt)
     if (fmtStr.endsWith("/")) throw new IllegalArgumentException("Format cannot end with a slash")
-    DateTimeFormatter.ofPattern(fmtStr)
+    fmtStr
   }
 
-  def parseAttribute(opts: Map[String, String]): String = {
-    opts(PartitionAttribute)
+  def parseDtgAttr(opts: Map[String, String]): String = {
+    opts(DtgAttribute)
+  }
+
+  def parseGeomAttr(opts: Map[String, String]): String = {
+    opts(GeomAttribute)
   }
 
   def parseStepUnit(opts: Map[String, String]): ChronoUnit = {
-    ChronoUnit.valueOf(opts(StepUnitOpt))
+    ChronoUnit.valueOf(opts(StepUnitOpt).toUpperCase)
   }
 
   def parseStep(opts: Map[String, String]): Int = {
     opts(StepOpt).toInt
   }
+
+  def parseZ2Bits(opts: Map[String, String]): Int = {
+    opts(Z2Bits).toInt
+  }
 }
 
 
 object PartitionScheme {
+  val PartitionSchemeKey = "fs.partition-scheme.config"
   val PartitionOptsPrefix = "fs.partition-scheme.opts."
   val PartitionSchemeParam = new Param("fs.partition-scheme.name", classOf[String], "Partition scheme name", false)
+
+  def addToSft(sft: SimpleFeatureType, scheme: PartitionScheme): Unit =
+    sft.getUserData.put(PartitionSchemeKey, scheme.toString)
+
+  def extractFromSft(sft: SimpleFeatureType): PartitionScheme = {
+    if (!sft.getUserData.containsKey(PartitionSchemeKey)) throw new IllegalArgumentException("SFT does not have partition scheme in hints")
+    apply(sft, sft.getUserData.get(PartitionSchemeKey).asInstanceOf[String])
+  }
 
   def apply(sft: SimpleFeatureType, dsParams: util.Map[String, Serializable]): PartitionScheme = {
     val pName = PartitionSchemeParam.lookUp(dsParams).toString
@@ -66,28 +86,64 @@ object PartitionScheme {
     PartitionScheme(sft, pName, pOpts)
   }
 
+  // TODO delegate out, etc. make a loader, etc
   def apply(sft: SimpleFeatureType, pName: String, opts: Map[String, String]): PartitionScheme = {
     import PartitionOpts._
     pName match {
-      case "date" =>
-        val attr = parseAttribute(opts)
+      case "datetime" =>
+        val attr = parseDtgAttr(opts)
         val fmt = parseDateTimeFormat(opts)
         val su = parseStepUnit(opts)
         val s = parseStep(opts)
-        new DateScheme(fmt, su, s, sft, attr)
+        new DateTimeScheme(fmt, su, s, sft, attr)
+
+      case "datetime-z2" =>
+        val dtgAttr = parseDtgAttr(opts)
+        val geomAttr = parseGeomAttr(opts)
+        val fmt = parseDateTimeFormat(opts)
+        val su = parseStepUnit(opts)
+        val s = parseStep(opts)
+        val z2Bits = parseZ2Bits(opts)
+        new DateTimeZ2Scheme(fmt, su, s, z2Bits, sft, dtgAttr, geomAttr)
+
+      case "z2" =>
+        val geomAttr = parseGeomAttr(opts)
+        val z2Bits = parseZ2Bits(opts)
+        new Z2Scheme(z2Bits, sft, geomAttr)
+
+      case _ =>
+        throw new IllegalArgumentException(s"Unknown scheme name $pName")
     }
   }
 
+  // TODO meh this sucks
+  def apply(sft: SimpleFeatureType, conf: Config): PartitionScheme = {
+    if (!conf.hasPath("name")) throw new IllegalArgumentException("config must have name for scheme")
+    if (!conf.hasPath("opts")) throw new IllegalArgumentException("config must have opts for scheme")
+
+    val name = conf.getString("name")
+    val optConf = conf.getConfig("opts")
+    val opts = conf.getConfig("opts").entrySet().map { e =>
+        e.getKey -> optConf.getString(e.getKey)
+    }.toMap
+
+    apply(sft, name, opts)
+  }
+
+  def apply(sft: SimpleFeatureType, conf: String): PartitionScheme = {
+    apply(sft, ConfigFactory.parseString(conf))
+  }
 
 }
 
-class DateScheme(fmt: DateTimeFormatter,
-                 stepUnit: ChronoUnit,
-                 step: Int,
-                 sft: SimpleFeatureType,
-                 partitionAttribute: String)
+class DateTimeScheme(fmtStr: String,
+                     stepUnit: ChronoUnit,
+                     step: Int,
+                     sft: SimpleFeatureType,
+                     dtgAttribute: String)
   extends PartitionScheme {
-  private val index = sft.indexOf(partitionAttribute)
+  private val index = sft.indexOf(dtgAttribute)
+  private val fmt = DateTimeFormatter.ofPattern(fmtStr)
   override def getPartitionName(sf: SimpleFeature): String = {
     val instant = sf.getAttribute(index).asInstanceOf[Date].toInstant.atZone(ZoneOffset.UTC)
     fmt.format(instant)
@@ -95,7 +151,7 @@ class DateScheme(fmt: DateTimeFormatter,
 
   override def getCoveringPartitions(f: Filter): java.util.List[String] = {
     // TODO: deal with more than just a single date range
-    val interval = FilterHelper.extractIntervals(f, partitionAttribute).values
+    val interval = FilterHelper.extractIntervals(f, dtgAttribute).values
       .map { case (s,e) => (
         Instant.ofEpochMilli(s.getMillis).atZone(ZoneOffset.UTC),
         Instant.ofEpochMilli(e.getMillis).atZone(ZoneOffset.UTC)) }
@@ -109,10 +165,28 @@ class DateScheme(fmt: DateTimeFormatter,
   }
 
   // ? is this a good idea
-  override def maxDepth(): Int = fmt.toString.count(_ == '/')
+  override def maxDepth(): Int = fmtStr.count(_ == '/')
+
+  override def toString: String = {
+    import PartitionOpts._
+    import scala.collection.JavaConverters._
+    val conf = ConfigFactory.parseMap(Map(
+      "name" -> "datetime",
+      "opts" -> Map(
+        DtgAttribute -> dtgAttribute,
+        DateTimeFormatOpt -> fmtStr,
+        StepUnitOpt -> stepUnit.toString,
+        StepOpt -> step.toString).asJava).asJava)
+    conf.root().render(ConfigRenderOptions.concise)
+  }
+
+  override def fromString(sft: SimpleFeatureType, s: String): PartitionScheme =
+    PartitionScheme(sft, ConfigFactory.parseString(s))
 }
 
-class Z2Scheme(bitWidth: Int, sft: SimpleFeatureType, geomAttribute: String) extends PartitionScheme {
+class Z2Scheme(bitWidth: Int,
+               sft: SimpleFeatureType,
+               geomAttribute: String) extends PartitionScheme {
   private val geomAttrIndex = sft.indexOf(geomAttribute)
   private val z2 = new ZCurve2D(bitWidth)
   private val digits = math.round(math.log10(math.pow(bitWidth, 2))).toInt
@@ -144,18 +218,33 @@ class Z2Scheme(bitWidth: Int, sft: SimpleFeatureType, geomAttribute: String) ext
   }
 
   override def maxDepth(): Int = 1
+
+  override def toString: String = {
+    import PartitionOpts._
+    import scala.collection.JavaConverters._
+    val conf = ConfigFactory.parseMap(Map(
+      "name" -> "z2",
+      "opts" -> Map(
+        GeomAttribute -> geomAttribute,
+        Z2Bits -> bitWidth.toString).asJava))
+    conf.root().render(ConfigRenderOptions.concise)
+  }
+
+  override def fromString(sft: SimpleFeatureType, s: String): PartitionScheme =
+    PartitionScheme(sft, ConfigFactory.parseString(s))
+
 }
 
-class DateTimeZ2Scheme(fmt: DateTimeFormatter,
+class DateTimeZ2Scheme(fmtStr: String,
                        stepUnit: ChronoUnit,
                        step: Int,
                        z2BitWidth: Int,
                        sft: SimpleFeatureType,
-                       dateTimeAttribute: String,
+                       dtgAttribute: String,
                        geomAttribute: String) extends PartitionScheme {
 
   private val z2Scheme = new Z2Scheme(z2BitWidth, sft, geomAttribute)
-  private val dateScheme = new DateScheme(fmt, stepUnit, step, sft, dateTimeAttribute)
+  private val dateScheme = new DateTimeScheme(fmtStr, stepUnit, step, sft, dtgAttribute)
 
   override def getPartitionName(sf: SimpleFeature): String = {
     dateScheme.getPartitionName(sf) + "/" + z2Scheme.getPartitionName(sf)
@@ -169,16 +258,36 @@ class DateTimeZ2Scheme(fmt: DateTimeFormatter,
   }
 
   override def maxDepth(): Int = z2Scheme.maxDepth() + dateScheme.maxDepth()
+
+  override def toString: String = {
+    import PartitionOpts._
+
+    import scala.collection.JavaConverters._
+    val conf = ConfigFactory.parseMap(Map(
+      "name" -> "datetime-z2",
+      "opts" -> Map(
+        GeomAttribute -> geomAttribute,
+        Z2Bits -> z2BitWidth.toString,
+        DtgAttribute -> dtgAttribute,
+        DateTimeFormatOpt -> fmtStr,
+        StepUnitOpt -> stepUnit.toString,
+        StepOpt -> step.toString).asJava).asJava)
+    conf.root().render(ConfigRenderOptions.concise)
+  }
+
+  override def fromString(sft: SimpleFeatureType, s: String): PartitionScheme =
+    PartitionScheme(sft, ConfigFactory.parseString(s))
 }
 
-class HierarchicalPartitionScheme(partitionSchemes: Seq[PartitionScheme], sep: String) extends PartitionScheme {
-  override def getPartitionName(sf: SimpleFeature): String =
-    partitionSchemes.map(_.getPartitionName(sf)).mkString(sep)
-
-  import scala.collection.JavaConversions._
-  override def getCoveringPartitions(f: Filter): java.util.List[String] =
-    partitionSchemes.flatMap(_.getCoveringPartitions(f)).distinct
-
-  override def maxDepth(): Int =  partitionSchemes.map(_.maxDepth()).sum
-
-}
+// TODO fix up
+//class HierarchicalPartitionScheme(partitionSchemes: Seq[PartitionScheme], sep: String) extends PartitionScheme {
+//  override def getPartitionName(sf: SimpleFeature): String =
+//    partitionSchemes.map(_.getPartitionName(sf)).mkString(sep)
+//
+//  import scala.collection.JavaConversions._
+//  override def getCoveringPartitions(f: Filter): java.util.List[String] =
+//    partitionSchemes.flatMap(_.getCoveringPartitions(f)).distinct
+//
+//  override def maxDepth(): Int =  partitionSchemes.map(_.maxDepth()).sum
+//
+//}

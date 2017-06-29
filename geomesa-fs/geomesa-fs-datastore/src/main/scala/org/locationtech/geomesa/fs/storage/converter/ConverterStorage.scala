@@ -106,7 +106,7 @@ class ConverterStorage(root: Path,
 
   override def getFileSystemRoot(typeName: String): URI = root.toUri
 
-  override def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = partitionScheme
+  override def getPartitionScheme(typeName: String): PartitionScheme = partitionScheme
 
   override def getPartition(name: String): Partition = new LeafStoragePartition(name)
 

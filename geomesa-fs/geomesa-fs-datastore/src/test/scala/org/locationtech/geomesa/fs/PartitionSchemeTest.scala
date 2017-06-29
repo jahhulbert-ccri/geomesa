@@ -10,7 +10,6 @@
 package org.locationtech.geomesa.fs
 
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Date
 
@@ -20,7 +19,7 @@ import org.geotools.filter.identity.FeatureIdImpl
 import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.junit.runner.RunWith
-import org.locationtech.geomesa.fs.storage.common.{DateScheme, DateTimeZ2Scheme}
+import org.locationtech.geomesa.fs.storage.common.{DateTimeScheme, DateTimeZ2Scheme}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -41,17 +40,17 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         gf.createPoint(new Coordinate(10, 10))), sft, new FeatureIdImpl("1"))
 
     "partition based on date" >> {
-      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy-MM-dd"), ChronoUnit.DAYS, 1, sft, "dtg")
+      val ps = new DateTimeScheme("yyyy-MM-dd", ChronoUnit.DAYS, 1, sft, "dtg")
       ps.getPartitionName(sf) mustEqual "2017-01-03"
     }
 
     "partition based on date with slash delimiter" >> {
-      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, 1, sft, "dtg")
+      val ps = new DateTimeScheme("yyyy/DDD/HH", ChronoUnit.DAYS, 1, sft, "dtg")
       ps.getPartitionName(sf) mustEqual "2017/003/10"
     }
 
     "partition based on date with slash delimiter" >> {
-      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.DAYS, 1, sft, "dtg")
+      val ps = new DateTimeScheme("yyyy/DDD/HH", ChronoUnit.DAYS, 1, sft, "dtg")
       ps.getPartitionName(sf) mustEqual "2017/003/10"
     }
 
@@ -64,7 +63,7 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         List[AnyRef]("test", Integer.valueOf(10), Date.from(Instant.parse("2017-01-03T10:15:30Z")),
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
-      val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 1, 10, sft, "dtg", "geom")
+      val ps = new DateTimeZ2Scheme("yyyy/DDD", ChronoUnit.DAYS, 1, 10, sft, "dtg", "geom")
       ps.getPartitionName(sf) mustEqual "2017/003/49"
       ps.getPartitionName(sf2) mustEqual "2017/003/12"
 
@@ -79,13 +78,13 @@ class PartitionSchemeTest extends Specification with AllExpectations {
         List[AnyRef]("test", Integer.valueOf(10), Date.from(Instant.parse("2017-01-03T10:15:30Z")),
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
-      val ps = new DateTimeZ2Scheme(DateTimeFormatter.ofPattern("yyyy/DDD"), ChronoUnit.DAYS, 1, 20, sft, "dtg", "geom")
+      val ps = new DateTimeZ2Scheme("yyyy/DDD", ChronoUnit.DAYS, 1, 20, sft, "dtg", "geom")
       ps.getPartitionName(sf) mustEqual "2017/003/196"
       ps.getPartitionName(sf2) mustEqual "2017/003/051"
     }
 
     "return correct date partitions" >> {
-      val ps = new DateScheme(DateTimeFormatter.ofPattern("yyyy/DDD/HH"), ChronoUnit.HOURS, 1, sft, "dtg")
+      val ps = new DateTimeScheme("yyyy/DDD/HH", ChronoUnit.HOURS, 1, sft, "dtg")
       val covering = ps.getCoveringPartitions(ECQL.toFilter("dtg >= '2016-08-03T00:00:00.000Z' and dtg < '2016-08-04T00:00:00.000Z'"))
       covering.size() mustEqual 24
 

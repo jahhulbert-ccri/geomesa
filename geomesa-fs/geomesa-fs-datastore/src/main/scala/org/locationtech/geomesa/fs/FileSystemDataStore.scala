@@ -19,6 +19,7 @@ import org.geotools.data.store.{ContentDataStore, ContentEntry, ContentFeatureSo
 import org.geotools.data.{DataAccessFactory, DataStore, DataStoreFactorySpi, Query}
 import org.geotools.feature.NameImpl
 import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemStorageFactory}
+import org.locationtech.geomesa.fs.storage.common.PartitionScheme
 import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.SimpleFeatureType
 
@@ -46,7 +47,7 @@ class FileSystemDataStore(fs: FileSystem,
   }
 
   override def createSchema(sft: SimpleFeatureType): Unit = {
-    storage.createNewFeatureType(sft, storage.getPartitionScheme(sft))
+    storage.createNewFeatureType(sft, PartitionScheme.extractFromSft(sft))
   }
 
 }

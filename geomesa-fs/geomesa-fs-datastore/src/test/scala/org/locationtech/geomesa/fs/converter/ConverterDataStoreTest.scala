@@ -31,11 +31,11 @@ class ConverterDataStoreTest extends Specification {
         "fs.encoding" -> "converter",
         "fs.options.sft.name" -> "fs-test",   //need to make one
         "fs.options.converter.name" -> "fs-test",
-        "fs.partition-scheme.name" -> "date",
+        "fs.partition-scheme.name" -> "datetime",
         "fs.partition-scheme.opts.datetime-format" -> "yyyy/DDD/HH/mm",
         "fs.partition-scheme.opts.step-unit" -> "MINUTES",
         "fs.partition-scheme.opts.step" -> "15",
-        "fs.partition-scheme.opts.partition-attribute" -> "dtg",
+        "fs.partition-scheme.opts.dtg-attribute" -> "dtg",
         "fs.partition-scheme.opts.leaf-mode" -> "data"
       ))
       ds must not beNull
@@ -59,11 +59,11 @@ class ConverterDataStoreTest extends Specification {
         "fs.encoding" -> "converter",
         "fs.options.sft.name" -> "fs-test",   //need to make one
         "fs.options.converter.name" -> "fs-test",
-        "fs.partition-scheme.name" -> "date",
+        "fs.partition-scheme.name" -> "datetime",
         "fs.partition-scheme.opts.datetime-format" -> "yyyy/DDD/HH/mm",
         "fs.partition-scheme.opts.step-unit" -> "MINUTES",
         "fs.partition-scheme.opts.step" -> "15",
-        "fs.partition-scheme.opts.partition-attribute" -> "dtg",
+        "fs.partition-scheme.opts.dtg-attribute" -> "dtg",
         "fs.partition-scheme.opts.leaf-mode" -> "data"
       ))
       ds must not beNull
@@ -121,11 +121,11 @@ class ConverterDataStoreTest extends Specification {
         "fs.encoding" -> "converter",
         "fs.options.sft.conf" -> conf,
         "fs.options.converter.conf" -> conf,
-        "fs.partition-scheme.name" -> "date",
+        "fs.partition-scheme.name" -> "datetime",
         "fs.partition-scheme.opts.datetime-format" -> "yyyy/DDD/HH/mm",
         "fs.partition-scheme.opts.step-unit" -> "MINUTES",
         "fs.partition-scheme.opts.step" -> "15",
-        "fs.partition-scheme.opts.partition-attribute" -> "dtg",
+        "fs.partition-scheme.opts.dtg-attribute" -> "dtg",
         "fs.partition-scheme.opts.leaf-mode" -> "data"
       ))
       ds must not beNull

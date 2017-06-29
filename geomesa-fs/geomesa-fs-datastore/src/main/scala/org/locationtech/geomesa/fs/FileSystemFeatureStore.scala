@@ -67,7 +67,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
       }
 
       override def write(): Unit = {
-        val writer = writers.get(storage.getPartitionScheme(_sft).getPartitionName(feature))
+        val writer = writers.get(storage.getPartitionScheme(typeName).getPartitionName(feature))
         writer.write(feature)
         feature = null
         count += 1
@@ -93,7 +93,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
     query.setTypeName(_sft.getTypeName)
     new DelegateSimpleFeatureReader(_sft,
       new DelegateSimpleFeatureIterator(
-        new FileSystemFeatureIterator(fs, storage.getPartitionScheme(_sft), _sft, query, readThreads, storage)))
+        new FileSystemFeatureIterator(fs, storage.getPartitionScheme(_sft.getTypeName), _sft, query, readThreads, storage)))
   }
 
 

@@ -13,6 +13,7 @@ import java.net.URI
 import java.{io, util}
 
 import com.google.common.collect.Maps
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -20,7 +21,7 @@ import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.hadoop.ParquetReader
 import org.geotools.data.Query
 import org.locationtech.geomesa.fs.storage.api._
-import org.locationtech.geomesa.fs.storage.common.{LeafStoragePartition, Stupid}
+import org.locationtech.geomesa.fs.storage.common.LeafStoragePartition
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
@@ -92,7 +93,7 @@ class ParquetFileSystemStorage(root: Path,
   override def listPartitions(typeName: String): util.List[Partition] = {
     import scala.collection.JavaConversions._
     buildPartitionList(new Path(root, typeName), "", 0,
-      getPartitionScheme(featureTypes(typeName)).maxDepth()).map(getPartition)
+      getPartitionScheme(typeName).maxDepth()).map(getPartition)
   }
 
   // TODO ask the parition manager the geometry is fully covered?
@@ -160,6 +161,7 @@ class ParquetFileSystemStorage(root: Path,
     }
 
   override def createNewFeatureType(sft: SimpleFeatureType, partitionScheme: PartitionScheme): Unit = {
+    org.locationtech.geomesa.fs.storage.common.PartitionScheme.addToSft(sft, partitionScheme)
     val path = new Path(root, sft.getTypeName)
     fs.mkdirs(path)
     val encoded = SimpleFeatureTypes.encodeType(sft, includeUserData = true)
@@ -169,15 +171,14 @@ class ParquetFileSystemStorage(root: Path,
     out.hsync()
     out.close()
     featureTypes.put(sft.getTypeName, sft)
-
-    // TODO write scheme for partition
   }
 
   override def getFileSystemRoot(typeName: String): URI = root.toUri
 
-  override def getPartitionScheme(sft: SimpleFeatureType): PartitionScheme = {
-    // TODO allow other things
-    Stupid.makeScheme(sft)
+  override def getPartitionScheme(typeName: String): PartitionScheme = {
+    val sft = featureTypes.get(typeName)
+    val conf = sft.getUserData.get(org.locationtech.geomesa.fs.storage.common.PartitionScheme.PartitionSchemeKey).asInstanceOf[String]
+    org.locationtech.geomesa.fs.storage.common.PartitionScheme(sft, ConfigFactory.parseString(conf))
   }
 
   override def getPartition(name: String): Partition = new LeafStoragePartition(name)

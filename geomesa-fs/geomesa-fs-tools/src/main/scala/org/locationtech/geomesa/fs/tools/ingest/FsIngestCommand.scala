@@ -11,8 +11,10 @@ package org.locationtech.geomesa.fs.tools.ingest
 import java.io.File
 
 import com.beust.jcommander.{Parameter, ParameterException, Parameters}
+import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
 import org.locationtech.geomesa.fs.FileSystemDataStore
+import org.locationtech.geomesa.fs.storage.common.PartitionScheme
 import org.locationtech.geomesa.fs.tools.{FsDataStoreCommand, FsParams}
 import org.locationtech.geomesa.tools.ingest._
 import org.locationtech.geomesa.tools.utils.CLArgResolver
@@ -42,8 +44,25 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
       throw new ParameterException("SimpleFeatureType specification argument is required")
     }
 
+    if (params.scheme == null) {
+      throw new ParameterException("Partition Scheme argument is required")
+    }
+
     val sft = CLArgResolver.getSft(params.spec, params.featureName)
     val converterConfig = CLArgResolver.getConfig(params.config)
+
+    val scheme: org.locationtech.geomesa.fs.storage.api.PartitionScheme = {
+      val f = new java.io.File(params.scheme)
+      if (f.exists()) {
+        val conf = ConfigFactory.parseFile(f)
+        Option(PartitionScheme(sft, conf))
+      } else None
+    }.orElse({
+      val conf = ConfigFactory.parseString(params.scheme)
+      Option(PartitionScheme(sft, conf))
+    }).getOrElse(throw new ParameterException("Partition Scheme argument is required"))
+    PartitionScheme.addToSft(sft, scheme)
+
     val ingest =
       new ParquetConverterIngest(sft,
         connection,
@@ -60,12 +79,15 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
 
 }
 
-// TODO implement datetime format, etc here for ingest or create type maybe?
 @Parameters(commandDescription = "Ingest/convert various file formats into GeoMesa")
 class FsIngestParams extends IngestParams with FsParams {
-  @Parameter(names = Array("--temp-path"), description = "Path to temp dir for parquet ingest (if null se don't use temp)", required = false)
+  @Parameter(names = Array("--temp-path"), description = "Path to temp dir for parquet ingest. " +
+    "Note that this may be useful when using s3 since its slow as a sink", required = false)
   var tempDir: String = _
 
   @Parameter(names = Array("--num-reducers"), description = "Num reducers", required = true)
   var reducers: java.lang.Integer = _
+
+  @Parameter(names = Array("--partition-scheme"), description = "PartitionScheme typesafe config or file", required = true)
+  var scheme: java.lang.String = _
 }
