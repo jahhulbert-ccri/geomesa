@@ -113,4 +113,6 @@ class ConverterStorage(root: Path,
   import scala.collection.JavaConversions._
   override def getPaths(typeName: String, partition: Partition): java.util.List[URI] =
     List(new Path(root, partition.getName).toUri)
+
+  override def newPartitions(`type`: String, partitionNames: util.List[String]): Unit = ???
 }

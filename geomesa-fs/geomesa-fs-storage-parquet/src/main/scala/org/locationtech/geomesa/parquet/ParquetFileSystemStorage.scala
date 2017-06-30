@@ -12,6 +12,7 @@ package org.locationtech.geomesa.parquet
 import java.net.URI
 import java.{io, util}
 
+import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
@@ -52,6 +53,22 @@ class ParquetFileSystemStorage(root: Path,
 
   private val fileExtension = "parquet"
   private val schemeConfFile = "schema.sft"
+  private val metaFile = "metadata"
+
+  private val metaLoader = new CacheLoader[String, Metadata] {
+    override def load(k: String): Metadata = {
+      val path = new Path(new Path(root, k), metaFile)
+      new Metadata(path, conf)
+    }
+  }
+  private val metaData =
+    CacheBuilder.newBuilder()
+      .build[String, Metadata](metaLoader)
+
+  override def newPartitions(typeName: String, partitionNames: util.List[String]): Unit = {
+    import scala.collection.JavaConversions._
+    metaData(typeName).add(partitionNames)
+  }
 
   // TODO we don't necessarily want the s3 bucket path to exist...but need to verify we can write
   private val featureTypes = {
@@ -93,9 +110,11 @@ class ParquetFileSystemStorage(root: Path,
   }
 
   override def listPartitions(typeName: String): util.List[Partition] = {
+//    import scala.collection.JavaConversions._
+//    buildPartitionList(new Path(root, typeName), "", 0,
+//      getPartitionScheme(typeName).maxDepth()).map(getPartition)
     import scala.collection.JavaConversions._
-    buildPartitionList(new Path(root, typeName), "", 0,
-      getPartitionScheme(typeName).maxDepth()).map(getPartition)
+    metaData(typeName).getPartitions.map(getPartition)
   }
 
   // TODO ask the parition manager the geometry is fully covered?
@@ -136,8 +155,6 @@ class ParquetFileSystemStorage(root: Path,
     }
   }
 
-
-
   override def getWriter(featureType: String, partition: Partition): FileSystemWriter =
     new FileSystemWriter {
       private val sft = featureTypes(featureType)
@@ -157,7 +174,9 @@ class ParquetFileSystemStorage(root: Path,
 
       override def flush(): Unit = {}
 
-      override def close(): Unit = writer.close()
+      override def close(): Unit = {
+        writer.close()
+      }
     }
 
   override def createNewFeatureType(sft: SimpleFeatureType, partitionScheme: PartitionScheme): Unit = {
@@ -166,7 +185,7 @@ class ParquetFileSystemStorage(root: Path,
     fs.mkdirs(path)
     val encoded = SimpleFeatureTypes.toConfigString(sft, includeUserData = true, concise = false, includePrefix = false)
     val out = fs.create(new Path(path, schemeConfFile))
-    out.writeUTF(encoded)
+    out.writeBytes(encoded)
     out.hflush()
     out.hsync()
     out.close()

@@ -21,6 +21,8 @@ import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.locationtech.geomesa.fs.storage.api.{FileSystemStorage, FileSystemWriter}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
+import scala.collection.mutable
+
 class FileSystemFeatureStore(entry: ContentEntry,
                              query: Query,
                              fs: FileSystem,
@@ -49,6 +51,8 @@ class FileSystemFeatureStore(entry: ContentEntry,
           .removalListener(rl)
           .build[String, FileSystemWriter](loader)
 
+      private val partitionsWritten = mutable.HashSet.empty[String]
+
       private val sft = _sft
 
       // TODO: figure out flushCount
@@ -67,19 +71,24 @@ class FileSystemFeatureStore(entry: ContentEntry,
       }
 
       override def write(): Unit = {
-        val writer = writers.get(storage.getPartitionScheme(typeName).getPartitionName(feature))
+        val partition = storage.getPartitionScheme(typeName).getPartitionName(feature)
+        partitionsWritten += partition
+        val writer = writers.get(partition)
         writer.write(feature)
+
         feature = null
         count += 1
-        if (count % flushCount == 0) {
-          writer.flush()
-        }
+//        if (count % flushCount == 0) {
+//          writer.flush()
+//        }
       }
 
       override def remove(): Unit = throw new NotImplementedError()
 
       override def close(): Unit = {
         writers.invalidateAll()
+        import scala.collection.JavaConversions._
+        storage.newPartitions(sft.getTypeName, partitionsWritten.toList)
       }
 
     }

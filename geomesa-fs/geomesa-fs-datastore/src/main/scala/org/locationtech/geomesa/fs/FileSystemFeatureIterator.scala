@@ -26,10 +26,22 @@ class FileSystemFeatureIterator(fs: FileSystem,
 
   private val partitions = PartitionUtils.getPartitionsForQuery(storage, sft, q)
 
-  private val threadedReader = new ThreadedReader(storage, partitions, q, readThreads)
-  override def hasNext: Boolean = threadedReader.hasNext
-  override def next(): SimpleFeature = threadedReader.next()
-  override def close(): Unit = threadedReader.close()
+  private val iter: java.util.Iterator[SimpleFeature] with AutoCloseable =
+    if (partitions.isEmpty) {
+      new java.util.Iterator[SimpleFeature] with AutoCloseable {
+        override def next(): SimpleFeature = throw new NoSuchElementException
+
+        override def hasNext: Boolean = false
+
+        override def close(): Unit = {}
+      }
+    } else {
+      new ThreadedReader(storage, partitions, q, readThreads)
+    }
+
+  override def hasNext: Boolean = iter.hasNext
+  override def next(): SimpleFeature = iter.next()
+  override def close(): Unit = iter.close()
 }
 
 class ThreadedReader(storage: FileSystemStorage, partitions: Seq[Partition], q: Query, numThreads: Int)
@@ -43,7 +55,7 @@ class ThreadedReader(storage: FileSystemStorage, partitions: Seq[Partition], q: 
   // However, if you are doing lots of filtering it appears that bumping the threads up high
   // can be very useful. Seems possibly numcores/2 might is a good setting (which is a standard idea)
 
-  logger.info(s"Threadeding the read of ${partitions.size} partitions with $numThreads reader threads (and 1 writer thread)")
+  logger.info(s"Threading the read of ${partitions.size} partitions with $numThreads reader threads (and 1 writer thread)")
   private val es = Executors.newFixedThreadPool(numThreads)
   private val latch = new CountDownLatch(partitions.size)
 
