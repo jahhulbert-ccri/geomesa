@@ -21,6 +21,7 @@ import org.locationtech.geomesa.tools.utils.CLArgResolver
 import org.locationtech.geomesa.utils.classpath.ClassPathUtils
 
 import scala.collection.JavaConversions._
+import scala.util.Try
 
 // TODO we need multi threaded ingest for this
 class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStoreCommand {
@@ -51,13 +52,14 @@ class FsIngestCommand extends IngestCommand[FileSystemDataStore] with FsDataStor
     val sft = CLArgResolver.getSft(params.spec, params.featureName)
     val converterConfig = CLArgResolver.getConfig(params.config)
 
-    val scheme: org.locationtech.geomesa.fs.storage.api.PartitionScheme = {
+    val scheme: org.locationtech.geomesa.fs.storage.api.PartitionScheme =
+      Try(PartitionScheme.extractFromSft(sft)).toOption.orElse({
       val f = new java.io.File(params.scheme)
       if (f.exists()) {
         val conf = ConfigFactory.parseFile(f)
         Option(PartitionScheme(sft, conf))
       } else None
-    }.orElse({
+    }).orElse({
       val conf = ConfigFactory.parseString(params.scheme)
       Option(PartitionScheme(sft, conf))
     }).getOrElse(throw new ParameterException("Partition Scheme argument is required"))

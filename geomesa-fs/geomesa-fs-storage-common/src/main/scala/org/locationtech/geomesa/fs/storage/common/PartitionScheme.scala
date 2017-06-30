@@ -34,7 +34,7 @@ object PartitionOpts {
   val StepOpt = "step"
   val DtgAttribute = "dtg-attribute"
   val GeomAttribute = "geom-attribute"
-  val Z2Bits = "z2-bits"
+  val Z2Resolution = "z2-resolution"
 
   def parseDateTimeFormat(opts: Map[String, String]): String = {
     val fmtStr = opts(DateTimeFormatOpt)
@@ -58,8 +58,8 @@ object PartitionOpts {
     opts(StepOpt).toInt
   }
 
-  def parseZ2Bits(opts: Map[String, String]): Int = {
-    opts(Z2Bits).toInt
+  def parseZ2Resolution(opts: Map[String, String]): Int = {
+    opts(Z2Resolution).toInt
   }
 }
 
@@ -104,13 +104,13 @@ object PartitionScheme {
         val fmt = parseDateTimeFormat(opts)
         val su = parseStepUnit(opts)
         val s = parseStep(opts)
-        val z2Bits = parseZ2Bits(opts)
-        new DateTimeZ2Scheme(fmt, su, s, z2Bits, sft, dtgAttr, geomAttr)
+        val z2Res = parseZ2Resolution(opts)
+        new DateTimeZ2Scheme(fmt, su, s, z2Res, sft, dtgAttr, geomAttr)
 
       case "z2" =>
         val geomAttr = parseGeomAttr(opts)
-        val z2Bits = parseZ2Bits(opts)
-        new Z2Scheme(z2Bits, sft, geomAttr)
+        val z2Res = parseZ2Resolution(opts)
+        new Z2Scheme(z2Res, sft, geomAttr)
 
       case _ =>
         throw new IllegalArgumentException(s"Unknown scheme name $pName")
@@ -185,12 +185,21 @@ class DateTimeScheme(fmtStr: String,
     PartitionScheme(sft, ConfigFactory.parseString(s))
 }
 
-class Z2Scheme(bitWidth: Int,
+class Z2Scheme(resolution: Int,
                sft: SimpleFeatureType,
                geomAttribute: String) extends PartitionScheme {
+
+  class FixedZ2(resolution: Int) extends ZCurve2D(resolution) {
+    override  def mapToCol(x: Double) =
+      math.min(((x - xmin) / cellwidth).toInt, resolution - 1)
+
+    override def mapToRow(y: Double) =
+      math.min(((ymax - y) / cellheight).toInt, resolution - 1)
+  }
+
   private val geomAttrIndex = sft.indexOf(geomAttribute)
-  private val z2 = new ZCurve2D(bitWidth)
-  private val digits = math.round(math.log10(math.pow(bitWidth, 2))).toInt
+  private val z2 = new FixedZ2(resolution)
+  private val digits = math.ceil(math.log10(math.pow(2, resolution))).toInt
 
   override def getPartitionName(sf: SimpleFeature): String = {
     val pt = sf.getAttribute(geomAttrIndex).asInstanceOf[Point]
@@ -227,7 +236,7 @@ class Z2Scheme(bitWidth: Int,
       "name" -> "z2",
       "opts" -> Map(
         GeomAttribute -> geomAttribute,
-        Z2Bits -> bitWidth.toString).asJava))
+        Z2Resolution -> resolution.toString).asJava))
     conf.root().render(ConfigRenderOptions.concise)
   }
 
@@ -239,12 +248,12 @@ class Z2Scheme(bitWidth: Int,
 class DateTimeZ2Scheme(fmtStr: String,
                        stepUnit: ChronoUnit,
                        step: Int,
-                       z2BitWidth: Int,
+                       resolution: Int,
                        sft: SimpleFeatureType,
                        dtgAttribute: String,
                        geomAttribute: String) extends PartitionScheme {
 
-  private val z2Scheme = new Z2Scheme(z2BitWidth, sft, geomAttribute)
+  private val z2Scheme = new Z2Scheme(resolution, sft, geomAttribute)
   private val dateScheme = new DateTimeScheme(fmtStr, stepUnit, step, sft, dtgAttribute)
 
   override def getPartitionName(sf: SimpleFeature): String = {
@@ -268,7 +277,7 @@ class DateTimeZ2Scheme(fmtStr: String,
       "name" -> "datetime-z2",
       "opts" -> Map(
         GeomAttribute -> geomAttribute,
-        Z2Bits -> z2BitWidth.toString,
+        Z2Resolution -> resolution.toString,
         DtgAttribute -> dtgAttribute,
         DateTimeFormatOpt -> fmtStr,
         StepUnitOpt -> stepUnit.toString,

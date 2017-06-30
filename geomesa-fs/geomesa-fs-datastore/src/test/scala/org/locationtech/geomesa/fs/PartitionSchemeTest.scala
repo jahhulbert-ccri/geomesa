@@ -19,7 +19,7 @@ import org.geotools.filter.identity.FeatureIdImpl
 import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.junit.runner.RunWith
-import org.locationtech.geomesa.fs.storage.common.{DateTimeScheme, DateTimeZ2Scheme}
+import org.locationtech.geomesa.fs.storage.common.{DateTimeScheme, DateTimeZ2Scheme, Z2Scheme}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -64,8 +64,8 @@ class PartitionSchemeTest extends Specification with AllExpectations {
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
       val ps = new DateTimeZ2Scheme("yyyy/DDD", ChronoUnit.DAYS, 1, 10, sft, "dtg", "geom")
-      ps.getPartitionName(sf) mustEqual "2017/003/49"
-      ps.getPartitionName(sf2) mustEqual "2017/003/12"
+      ps.getPartitionName(sf) mustEqual "2017/003/0049"
+      ps.getPartitionName(sf2) mustEqual "2017/003/0012"
 
     }
 
@@ -79,8 +79,8 @@ class PartitionSchemeTest extends Specification with AllExpectations {
           gf.createPoint(new Coordinate(-75, 38))), sft, new FeatureIdImpl("1"))
 
       val ps = new DateTimeZ2Scheme("yyyy/DDD", ChronoUnit.DAYS, 1, 20, sft, "dtg", "geom")
-      ps.getPartitionName(sf) mustEqual "2017/003/196"
-      ps.getPartitionName(sf2) mustEqual "2017/003/051"
+      ps.getPartitionName(sf) mustEqual "2017/003/0000196"
+      ps.getPartitionName(sf2) mustEqual "2017/003/0000051"
     }
 
     "return correct date partitions" >> {
@@ -88,6 +88,18 @@ class PartitionSchemeTest extends Specification with AllExpectations {
       val covering = ps.getCoveringPartitions(ECQL.toFilter("dtg >= '2016-08-03T00:00:00.000Z' and dtg < '2016-08-04T00:00:00.000Z'"))
       covering.size() mustEqual 24
 
+    }
+
+    "2 bit datetime z2 partition" >> {
+      val ps = new Z2Scheme(2, sft, "geom")
+      val covering = ps.getCoveringPartitions(ECQL.toFilter("dtg >= '2016-08-03T00:00:00.000Z' and dtg < '2016-08-04T00:00:00.000Z'"))
+      covering.size() mustEqual 4
+    }
+
+    "2 bit z2 with date" >> {
+      val ps = new DateTimeZ2Scheme("yyyy/DDD/HH", ChronoUnit.HOURS, 1, 2, sft, "dtg", "geom")
+      val covering = ps.getCoveringPartitions(ECQL.toFilter("dtg >= '2016-08-03T00:00:00.000Z' and dtg < '2016-08-04T00:00:00.000Z'"))
+      covering.size() mustEqual 24 * 4
     }
 
   }
