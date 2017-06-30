@@ -15,6 +15,7 @@ import java.{io, util}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.parquet.filter2.compat.FilterCompat
@@ -52,7 +53,7 @@ class ParquetFileSystemStorage(root: Path,
                                conf: Configuration) extends FileSystemStorage with LazyLogging {
 
   private val fileExtension = "parquet"
-  private val schemeConfFile = "schema.sft"
+  private val schemaFile = "schema.sft"
   private val metaFile = "metadata"
 
   private val metaLoader = new CacheLoader[String, Metadata] {
@@ -77,12 +78,17 @@ class ParquetFileSystemStorage(root: Path,
     files.map { f =>
       if (!f.isDirectory) Failure(null)
       else Try {
-        val in = fs.open(new Path(f.getPath, schemeConfFile))
-        val sftConf = ConfigFactory.parseString(in.readUTF())
-        SimpleFeatureTypes.createType(sftConf)
+        val in = fs.open(new Path(f.getPath, schemaFile))
+        try {
+          val sftConf = ConfigFactory.parseString(IOUtils.toString(in))
+          SimpleFeatureTypes.createType(sftConf)
+        } finally  {
+          in.close()
+        }
       }
-    }.collect { case Success(s) => s }
-      .foreach { sft => result += sft.getTypeName -> sft }
+    }.collect {
+      case Success(s) => s
+    }.foreach { sft => result += sft.getTypeName -> sft }
     result
   }
 
@@ -184,7 +190,7 @@ class ParquetFileSystemStorage(root: Path,
     val path = new Path(root, sft.getTypeName)
     fs.mkdirs(path)
     val encoded = SimpleFeatureTypes.toConfigString(sft, includeUserData = true, concise = false, includePrefix = false)
-    val out = fs.create(new Path(path, schemeConfFile))
+    val out = fs.create(new Path(path, schemaFile))
     out.writeBytes(encoded)
     out.hflush()
     out.hsync()
