@@ -37,3 +37,31 @@ object Z2SFC extends SpaceFillingCurve[Z2] {
     Z2.zranges(zbounds.toArray, precision, maxRanges)
   }
 }
+
+
+class CustomZ2SFC(precision: Int) extends SpaceFillingCurve[Z2] {
+
+  private val xprec: Long = precision
+  private val yprec: Long = precision
+
+  override val lon  = NormalizedLon(xprec)
+  override val lat  = NormalizedLat(yprec)
+
+  override def index(x: Double, y: Double): Z2 = {
+    require(x >= lon.min && x <= lon.max && y >= lat.min && y <= lat.max,
+      s"Value(s) out of bounds ([${lon.min},${lon.max}], [${lat.min},${lat.max}]): $x, $y")
+    Z2(lon.normalize(x), lat.normalize(y))
+  }
+
+  override def invert(z: Z2): (Double, Double) = {
+    val (x, y) = z.decode
+    (lon.denormalize(x), lat.denormalize(y))
+  }
+
+  override def ranges(xy: Seq[(Double, Double, Double, Double)],
+                      precision: Int,
+                      maxRanges: Option[Int]): Seq[IndexRange] = {
+    val zbounds = xy.map { case (xmin, ymin, xmax, ymax) => ZRange(index(xmin, ymin).z, index(xmax, ymax).z) }
+    Z2.zranges(zbounds.toArray, precision, maxRanges)
+  }
+}
