@@ -102,5 +102,23 @@ class PartitionSchemeTest extends Specification with AllExpectations {
       covering.size() mustEqual 24 * 4
     }
 
+    "2 bit with filter" >> {
+      val ps = new Z2Scheme(2, sft, "geom")
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -180, -90, 180, 90, 'EPSG:4326')")).size mustEqual 4
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -1, -1, 1, 1, 'EPSG:4326')")).size mustEqual 4
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -10, 5, 10, 6, 'EPSG:4326')")).size mustEqual 2
+    }
+
+    "4 bit with filter" >> {
+      val ps = new Z2Scheme(4, sft, "geom")
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -180, -90, 180, 90, 'EPSG:4326')")).size mustEqual 16
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -1, -1, 1, 1, 'EPSG:4326')")).size mustEqual 4
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -10, 5, 10, 6, 'EPSG:4326')")).size mustEqual 2
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -90, 5, 90, 6, 'EPSG:4326')")).size mustEqual 3
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -90.000000001, 5, 90, 6, 'EPSG:4326')")).size mustEqual 4
+      ps.getCoveringPartitions(ECQL.toFilter("bbox(geom, -90.000000001, 5, 180, 6, 'EPSG:4326')")).size mustEqual 4
+    }
+
+
   }
 }
