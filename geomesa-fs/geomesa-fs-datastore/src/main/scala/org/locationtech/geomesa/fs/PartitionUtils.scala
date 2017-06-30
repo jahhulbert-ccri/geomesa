@@ -24,13 +24,13 @@ object PartitionUtils {
     // TODO: can we short-circuit if the query is outside the bounds
     val partitionScheme = storage.getPartitionScheme(sft.getTypeName)
     val coveringPartitions = partitionScheme.getCoveringPartitions(q.getFilter).map(storage.getPartition)
-    coveringPartitions
-//    val storagePartitions = storage.listPartitions(sft.getTypeName)
-//    if (coveringPartitions.isEmpty) {
-//      storagePartitions
-//    } else {
-//      // TODO: for now we intersect the two to find the real files and not waste too much time
-//      coveringPartitions.intersect(storagePartitions)
-//    }
+//    coveringPartitions
+    val storagePartitions = storage.listPartitions(sft.getTypeName)
+    if (coveringPartitions.isEmpty) {
+      storagePartitions
+    } else {
+      // TODO: for now we intersect the two to find the real files and not waste too much time
+      coveringPartitions.intersect(storagePartitions)
+    }
   }
 }

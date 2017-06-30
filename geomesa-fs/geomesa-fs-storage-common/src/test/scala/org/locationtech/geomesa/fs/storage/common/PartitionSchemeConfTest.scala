@@ -30,7 +30,7 @@ class PartitionSchemeConfTest extends Specification with AllExpectations {
           |     step = 1
           |     dtg-attribute = dtg
           |     geom-attribute = geom
-          |     z2-bits = 10
+          |     z2-resolution = 10
           |   }
           | }
         """.stripMargin
