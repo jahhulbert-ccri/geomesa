@@ -87,7 +87,8 @@ class FileSystemDataStoreFactory extends DataStoreFactorySpi {
 
   override def getDisplayName: String = "GeoMesa-FS"
 
-  override def getImplementationHints: util.Map[RenderingHints.Key, _] = new util.HashMap[RenderingHints.Key, Serializable]()
+  override def getImplementationHints: util.Map[RenderingHints.Key, _] =
+    new util.HashMap[RenderingHints.Key, Serializable]()
 }
 
 object FileSystemDataStoreParams {
