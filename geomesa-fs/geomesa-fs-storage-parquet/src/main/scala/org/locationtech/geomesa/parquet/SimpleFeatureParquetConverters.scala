@@ -37,6 +37,7 @@ class SimpleFeatureGroupConverter(sft: SimpleFeatureType) extends GroupConverter
     }
   }
   private val converters = SimpleFeatureParquetConverters.converters(sft, this) :+ idConverter
+  private val updaters = SimpleFeatureParquetConverters.updaters(sft)
 
   import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
   private val geomIdx = sft.getGeomIndex
@@ -63,6 +64,7 @@ class SimpleFeatureGroupConverter(sft: SimpleFeatureType) extends GroupConverter
   // Don't materialize unless we have to
   def getCurrent: SimpleFeature = {
     set(geomIdx, gf.createPoint(new Coordinate(x, y)))
+    updaters.foreach{ u => u(currentArr) }
     // Must copy this because the next record may change the references in the array
     new ScalaSimpleFeature(curId.toStringUsingUTF8, sft, util.Arrays.copyOf(currentArr, currentArr.length))
   }
@@ -109,6 +111,35 @@ object SimpleFeatureParquetConverters {
     sft.getAttributeDescriptors.zipWithIndex.map { case (ad, idx) => converterFor(ad, idx, sfGC) }.toArray
   }
 
+  def updaters(sft: SimpleFeatureType): Array[(Array[AnyRef]) => Unit] = {
+    import scala.collection.JavaConversions._
+    sft.getAttributeDescriptors.zipWithIndex.toList.flatMap { case (ad, idx) => updaterFor(ad, idx) }.toArray
+  }
+
+  def updaterFor(ad: AttributeDescriptor, idx: Int): Option[(Array[AnyRef]) => Unit] = {
+    val binding = ad.getType.getBinding
+    val (objectType, _) = ObjectType.selectType(binding, ad.getUserData)
+
+    objectType match {
+
+      case ObjectType.DATE =>
+        Some((arr: Array[AnyRef]) => arr(idx) = if (arr(idx) != null) new Date(arr(idx).asInstanceOf[Long]) else null)
+
+      case ObjectType.STRING =>
+        Some((arr: Array[AnyRef]) => arr(idx) = if (arr(idx) != null) arr(idx).asInstanceOf[Binary].toStringUsingUTF8 else null)
+
+      case ObjectType.UUID =>
+        Some((arr: Array[AnyRef]) => arr(idx) = if (arr(idx) != null) {
+          val value = arr(idx).asInstanceOf[Binary]
+          val bb = ByteBuffer.wrap(value.getBytes)
+          new UUID(bb.getLong, bb.getLong)
+        } else null)
+
+      case _ => None
+
+    }
+  }
+
   // TODO we are creating lots of objects and boxing primitives here when we may not need to
   // unless a record is materialized so we can likely speed this up by not creating any of
   // the true SFT types util a record passes a filter in the SimpleFeatureRecordMaterializer
@@ -126,14 +157,14 @@ object SimpleFeatureParquetConverters {
         new SimpleFeatureFieldConverter(parent) {
           override def addLong(value: Long): Unit = {
             // TODO this can be optimized to set a long and not materialize date objects
-            parent.set(index, new Date(value) )
+            parent.set(index, Long.box(value) )
           }
         }
 
       case ObjectType.STRING =>
         new SimpleFeatureFieldConverter(parent) {
           override def addBinary(value: Binary): Unit = {
-            parent.set(index, value.toStringUsingUTF8)
+            parent.set(index, value)
           }
         }
 
@@ -205,9 +236,7 @@ object SimpleFeatureParquetConverters {
       case ObjectType.UUID =>
         new SimpleFeatureFieldConverter(parent) {
           override def addBinary(value: Binary): Unit = {
-            val bb = ByteBuffer.wrap(value.getBytes)
-            val uuid = new UUID(bb.getLong, bb.getLong)
-            parent.set(index, uuid)
+            parent.set(index, value)
           }
         }
     }
