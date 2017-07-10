@@ -59,13 +59,13 @@ class FileSystemDataStoreTest extends Specification {
       fw.close()
 
       // Metadata, schema, and partition file checks
-      new File(dir, "test/schema.sft").exists() must beTrue
+      new File(dir, "types.json").exists() must beTrue
       new File(dir, "test/2017/06/05/0000.parquet").exists() must beTrue
       new File(dir, "test/2017/06/05/0000.parquet").isFile must beTrue
 
       // metadata
-      new File(dir, "test/metadata").exists() must beTrue
-      val conf = ConfigFactory.parseFile(new File(dir, "test/metadata"))
+      new File(dir, "test/metadata.json").exists() must beTrue
+      val conf = ConfigFactory.parseFile(new File(dir, "test/metadata.json"))
       conf.hasPath("partitions") must beTrue
       val p1 = conf.getConfig("partitions").getStringList("2017/06/05")
       p1.size() mustEqual 1
