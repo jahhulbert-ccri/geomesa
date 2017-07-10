@@ -11,20 +11,18 @@ Common Date schemes are:
 * hourly
 * daily
 * monthly
-* yearly
 * julian-minute
 * julian-hourly
 * julian-daily
 
 Common geometry schemes are:
 
-* z2
 * z2-2bit
 * z2-4bit
 
 Common combined schemes are created by using a comma. For example:
 
-* hourly,z2
+* hourly,z2-2bit
 * julian-daily,z2-2bit
 
 

@@ -133,16 +133,42 @@ Note that in our example Jan 1 and Jan 2 both do not have all four quadrants rep
 dataset for that day didn't have any data in that region of the world. If additional data were ingested the directory
 and a corresponding file would be created.
 
-
-get-metadata
-~~~~~~~~~~~~
-
-
 update-metadata
 ~~~~~~~~~~~~~~~
 
-Running
+Running the update-metadata file will recompute the list of partitions stored within the metadata file in a filesystem
+datastore. This metadata file is used at query time in lieu of performing repeated directory listings.
 
 export
 ~~~~~~
+
+Export GeoMesa features. Commonly used arguments to control export are:
+
+* ``-a`` - A comma-separated list of attributes and/or filter functions to export (e.g. geom,dtg,user_name)
+* ``-q``` - a GeoTools CQL query to select rows of data from the datastore
+* ``-F`` - an output format (e.g. csv, tsv, avro)
+* ``--query-threads`` - The number of threads to read files from the datastore
+* ``-m`` - Maxiumum number of features to export
+
+Example export commands::
+
+    $ geomesa-fs export  \
+      -p s3a://mybucket/datastores/myds \
+      -e parquet
+      -f test_feature
+
+    $ geomesa-fs \
+      -p s3a://mybucket/datastores/myds \
+      -e parquet \
+      -f test_feature \
+      -F TSV
+      -q "dtg >= '2016-01-02' and dtg < '2016-01-10' and bbox(geom, -5, -5, 50, 50)"
+
+version
+~~~~~~~
+
+Prints out the version, git branch, and commit ID that the tools were built with::
+
+    $ geomesa-fs version
+
 
