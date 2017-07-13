@@ -58,18 +58,18 @@ class FileSystemDataStoreTest extends Specification {
       fw.write()
       fw.close()
 
-      // Metadata, schema, and partition file checks
-      new File(dir, "test/schema.sft").exists() must beTrue
-      new File(dir, "test/2017/06/05/0000.parquet").exists() must beTrue
-      new File(dir, "test/2017/06/05/0000.parquet").isFile must beTrue
-
       // metadata
-      new File(dir, "test/metadata").exists() must beTrue
-      val conf = ConfigFactory.parseFile(new File(dir, "test/metadata"))
+      new File(dir, "test/metadata.json").exists() must beTrue
+
+      val conf = ConfigFactory.parseFile(new File(dir, "test/metadata.json"))
       conf.hasPath("partitions") must beTrue
       val p1 = conf.getConfig("partitions").getStringList("2017/06/05")
       p1.size() mustEqual 1
       p1.get(0) mustEqual "0000.parquet"
+
+      // Metadata, schema, and partition file checks
+      new File(dir, "test/2017/06/05/0000.parquet").exists() must beTrue
+      new File(dir, "test/2017/06/05/0000.parquet").isFile must beTrue
 
       ds.getTypeNames must have size 1
       val fs = ds.getFeatureSource("test")
@@ -80,7 +80,9 @@ class FileSystemDataStoreTest extends Specification {
 
       features.size mustEqual 1
 
-      // TODO add another to ensure metadata works when reading writing
+      // Load a new datastore to read metadata and stuff
+      val ds2 = DataStoreFinder.getDataStore(Map(
+        "fs.path" -> dir.getPath))
     }
   }
 

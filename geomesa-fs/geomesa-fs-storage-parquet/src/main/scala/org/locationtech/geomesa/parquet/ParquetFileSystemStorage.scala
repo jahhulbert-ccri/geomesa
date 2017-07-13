@@ -10,13 +10,9 @@
 package org.locationtech.geomesa.parquet
 
 import java.net.URI
-import java.util.concurrent.Callable
-import java.{io, util}
+import java.util
 
-import com.google.common.cache.{Cache, CacheBuilder}
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.parquet.filter2.compat.FilterCompat
@@ -26,99 +22,154 @@ import org.geotools.data.Query
 import org.locationtech.geomesa.fs.storage.api._
 import org.locationtech.geomesa.fs.storage.common.{FileMetadata, StoragePartition, StorageUtils}
 import org.locationtech.geomesa.index.planning.QueryPlanner
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.CloseQuietly
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
-import scala.collection.mutable
-import scala.util.{Failure, Success, Try}
-
 class ParquetFileSystemStorageFactory extends FileSystemStorageFactory {
-  override def canProcess(params: util.Map[String, io.Serializable]): Boolean = {
+  import ParquetFileSystemStorage._
+
+
+  override def canProcess(params: util.Map[String, String]): Boolean = {
     params.containsKey("fs.path") &&
     params.containsKey("fs.encoding") && params.get("fs.encoding").asInstanceOf[String].equals("parquet")
   }
 
-  override def build(params: util.Map[String, io.Serializable]): FileSystemStorage = {
-    val path = params.get("fs.path").asInstanceOf[String]
-    val root = new Path(path)
+  override def create(path: URI,
+                      sft: SimpleFeatureType,
+                      partitionScheme: PartitionScheme,
+                      params: util.Map[String, String]): FileSystemStorage = {
+    val typePath = new Path(path)
     val conf = new Configuration
+    val fs = typePath.getFileSystem(conf)
     if (params.containsKey("parquet.compression")) {
       conf.set("parquet.compression", params.get("parquet.compression").asInstanceOf[String])
     } else if (System.getProperty("parquet.compression") != null) {
       conf.set("parquet.compression", System.getProperty("parquet.compression"))
     }
-    new ParquetFileSystemStorage(root, root.getFileSystem(conf), conf)
+
+    val metaFile = FileMetadata.create(fs, new Path(typePath, MetaFileName), sft, "parquet", partitionScheme, conf)
+    new ParquetFileSystemStorage(fs, typePath, metaFile, conf)
+  }
+
+  override def load(path: URI, params: util.Map[String, String]): FileSystemStorage = {
+    val typePath = new Path(path)
+    val conf = new Configuration
+    val fs = typePath.getFileSystem(conf)
+    val metaFile = FileMetadata.read(fs, new Path(typePath, MetaFileName), conf)
+    new ParquetFileSystemStorage(fs, typePath, metaFile, conf)
   }
 }
 
-/**
-  *
-  * @param root the root of this file system for a specifid SimpleFeatureType
-  * @param fs
-  */
-class ParquetFileSystemStorage(root: Path,
-                               fs: FileSystem,
+///**
+//  *
+//  * @param root the root of this file system for a specifid SimpleFeatureType
+//  * @param fs
+//  */
+//class x(root: Path,
+//                               fs: FileSystem,
+//                               conf: Configuration) extends LazyLogging {
+//
+//  import ParquetFileSystemStorage._
+//
+//  private val typeNames: mutable.ListBuffer[String] = {
+//    val b = mutable.ListBuffer.empty[String]
+//    if (fs.exists(root)) {
+//      fs.listStatus(root).filter(_.isDirectory).map(_.getPath.getName).foreach(b += _)
+//    }
+//    b
+//  }
+//
+//  private def typeStorage(typeName: String): ParquetTypeStorage =
+//    if (typeNames.contains(typeName)) {
+//      TypeStorageCache.get((root, typeName), new Callable[ParquetTypeStorage] {
+//        override def call(): ParquetTypeStorage = {
+//          val typePath = new Path(root, typeName)
+//          val metaFile = FileMetadata.read(fs, new Path(typePath, MetaFileName), conf)
+//          new ParquetTypeStorage(fs, typePath, metaFile, conf)
+//        }
+//      })
+//    } else {
+//      throw new IllegalArgumentException(s"Unable to find type $typeName in root directory $root")
+//    }
+//
+//  override def listFeatureTypes: util.List[SimpleFeatureType] = {
+//    import scala.collection.JavaConversions._
+//    TypeStorageCache.asMap().filter(_._1._1 == root).map(_._2.sft).toList
+//  }
+//
+//  override def getFeatureType(name: String): SimpleFeatureType = typeStorage(name).sft
+//
+//  override def listPartitions(typeName: String): util.List[Partition] =
+//    typeStorage(typeName).listPartitions
+//
+//  override def getPartitionReader(typeName: String, q: Query, partition: Partition): FileSystemPartitionIterator =
+//    typeStorage(typeName).getPartitionReader(q, partition)
+//
+//  override def getWriter(typeName: String, partition: Partition): FileSystemWriter =
+//    typeStorage(typeName).getWriter(partition)
+//
+//  override def createNewFeatureType(sft: SimpleFeatureType, partitionScheme: PartitionScheme): Unit = {
+//    val typeName = sft.getTypeName
+//    if (typeNames.contains(typeName)) {
+//      throw new IllegalArgumentException(s"Type already exists: ${sft.getTypeName}")
+//    } else {
+//      TypeStorageCache.get((root, typeName), new Callable[ParquetTypeStorage] {
+//        override def call(): ParquetTypeStorage = {
+//          val typePath = new Path(root, typeName)
+//          val metaPath = new Path(typePath, MetaFileName)
+//          val metaFile = FileMetadata.create(fs, metaPath, sft, "parquet", partitionScheme, conf)
+//          typeNames += typeName
+//          new ParquetTypeStorage(fs, typePath, metaFile, conf)
+//        }
+//      })
+//    }
+//  }
+//
+//  override def getFileSystemRoot(typeName: String): URI = root.toUri
+//
+//  override def getPartitionScheme(typeName: String): PartitionScheme = {
+//    typeStorage(typeName).scheme
+//  }
+//
+//  override def getPartition(name: String): Partition = new StoragePartition(name)
+//
+//  override def getPaths(typeName: String, partition: Partition): java.util.List[URI] =
+//    typeStorage(typeName).getPaths(partition)
+//
+//  override def getMetadata(typeName: String): Metadata = typeStorage(typeName).metadata
+//
+//  override def updateMetadata(typeName: String): Unit = ???
+//
+//}
+
+object ParquetFileSystemStorage {
+
+  val DataFileExtension = "parquet"
+  val SchemaFileName    = "schema.sft"
+  val MetaFileName      = "metadata.json"
+
+//  val TypeStorageCache: Cache[(Path, String), ParquetTypeStorage] = CacheBuilder.newBuilder().build[(Path, String), ParquetTypeStorage]()
+}
+
+class ParquetFileSystemStorage(fs: FileSystem,
+                               root: Path,
+                               val metadata: Metadata,
                                conf: Configuration) extends FileSystemStorage with LazyLogging {
 
-  private val dataFileExtention = "parquet"
-  private val schemaFile = "schema.sft"
-  private val metaFileName = "metadata"
+  import ParquetFileSystemStorage._
 
-  private def metadata(typeName: String) =
-    ParquetFileSystemStorage.MetadataCache.get((root, typeName), new Callable[Metadata] {
-      override def call(): Metadata = {
-        val start = System.currentTimeMillis()
-        val metaPath = new Path(new Path(root, typeName), metaFileName)
-        val meta = new FileMetadata(fs, metaPath, conf)
-        if (!fs.exists(metaPath)) {
-          meta.addPartitions(listStorageFiles(typeName))
-        }
-        val end = System.currentTimeMillis()
-        logger.info(s"Loaded metadata in ${end-start}ms")
-        meta
-      }
-    })
+  val sft: SimpleFeatureType = metadata.getSimpleFeatureType
+  val scheme: PartitionScheme = metadata.getPartitionScheme
+  val typeName: String = sft.getTypeName
 
-  // TODO we don't necessarily want the s3 bucket path to exist...but need to verify we can write
-  private val featureTypes: mutable.HashMap[String, SimpleFeatureType] = {
-    val m = mutable.HashMap.empty[String, SimpleFeatureType]
-    if (fs.exists(root)) {
-      val types = fs.listStatus(root).filter(_.isDirectory)
-      val schemaFiles = types.map { t => new Path(t.getPath, schemaFile) }
-      schemaFiles.map { s =>
-        Try {
-          val in = fs.open(s)
-          val sftConf = try {
-             ConfigFactory.parseString(IOUtils.toString(in))
-          } finally {
-            in.close()
-          }
-          SimpleFeatureTypes.createType(sftConf)
-        }
-      }.collect {
-        case Success(s) => m += s.getTypeName -> s
-        case Failure(ex) => logger.error("Error processing schema file", ex)
-      }
-    }
-    m
-  }
-
-  override def listFeatureTypes: util.List[SimpleFeatureType] = {
+  def listPartitions: util.List[Partition] = {
     import scala.collection.JavaConversions._
-    featureTypes.values.toList
+    metadata.getPartitions.map(getPartition)
   }
 
-  override def getFeatureType(name: String): SimpleFeatureType = featureTypes(name)
-
-  override def listPartitions(typeName: String): util.List[Partition] = {
-    import scala.collection.JavaConversions._
-    metadata(typeName).getPartitions.map(getPartition)
-  }
 
   // TODO ask the parition manager the geometry is fully covered?
-  override def getPartitionReader(typeName: String, q: Query, partition: Partition): FileSystemPartitionIterator = {
-    val sft = featureTypes(typeName)
+  def getPartitionReader(q: Query, partition: Partition): FileSystemPartitionIterator = {
 
     import org.locationtech.geomesa.index.conf.QueryHints._
     QueryPlanner.setQueryTransforms(q, sft)
@@ -137,7 +188,7 @@ class ParquetFileSystemStorage(root: Path,
     logger.info(s"Parquet filter: $parquetFilter and modified gt filter ${fc._2}")
 
     import scala.collection.JavaConversions._
-    val iters = getPaths(sft.getTypeName, partition).toIterator.map(u => new Path(u)).map { path =>
+    val iters = getPaths(partition).toIterator.map(u => new Path(u)).map { path =>
       if (!fs.exists(path)) {
         new EmptyFsIterator(partition)
       }
@@ -156,11 +207,11 @@ class ParquetFileSystemStorage(root: Path,
     new MultiIterator(partition, iters)
   }
 
-  override def getWriter(featureType: String, partition: Partition): FileSystemWriter = {
+  def getWriter(partition: Partition): FileSystemWriter = {
     new FileSystemWriter {
-      private val sft      = featureTypes(featureType)
-      private val leaf     = org.locationtech.geomesa.fs.storage.common.PartitionScheme.extractFromSft(sft).isLeafStorage
-      private val dataPath = StorageUtils.nextFile(fs, root, featureType, partition.getName, leaf, dataFileExtention)
+      private val leaf     = scheme.isLeafStorage
+      private val dataPath = StorageUtils.nextFile(fs, root, partition.getName, leaf, DataFileExtension)
+      metadata.addFile(partition.getName, dataPath.getName)
 
       private val sftConf = {
         val c = new Configuration(conf)
@@ -177,63 +228,38 @@ class ParquetFileSystemStorage(root: Path,
 
       override def flush(): Unit = {}
 
-      override def close(): Unit = CloseQuietly(writer)
+      override def close(): Unit = {
+
+        CloseQuietly(writer)
+      }
     }
   }
 
-  override def createNewFeatureType(sft: SimpleFeatureType, partitionScheme: PartitionScheme): Unit = {
-    org.locationtech.geomesa.fs.storage.common.PartitionScheme.addToSft(sft, partitionScheme)
-    val path = new Path(root, sft.getTypeName)
-    fs.mkdirs(path)
-    val encoded = SimpleFeatureTypes.toConfigString(sft, includeUserData = true, concise = false, includePrefix = false)
-    val out = fs.create(new Path(path, schemaFile))
-    out.writeBytes(encoded)
-    out.hflush()
-    out.hsync()
-    out.close()
-    featureTypes.put(sft.getTypeName, sft)
-  }
+  def getPartition(name: String): Partition = new StoragePartition(name)
 
-  override def getFileSystemRoot(typeName: String): URI = root.toUri
-
-  override def getPartitionScheme(typeName: String): PartitionScheme = {
-    val sft = featureTypes(typeName)
-    val conf = sft.getUserData.get(org.locationtech.geomesa.fs.storage.common.PartitionScheme.PartitionSchemeKey).asInstanceOf[String]
-    org.locationtech.geomesa.fs.storage.common.PartitionScheme(sft, ConfigFactory.parseString(conf))
-  }
-
-  override def getPartition(name: String): Partition = new StoragePartition(name)
-
-  private def listStorageFiles(typeName: String): util.Map[String, util.List[String]] = {
-    val scheme = getPartitionScheme(typeName)
+  private def listStorageFiles: util.Map[String, util.List[String]] = {
     val partitions =
-      StorageUtils.buildPartitionList(root, fs, typeName, scheme, StorageUtils.SequenceLength, dataFileExtention)
+      StorageUtils.buildPartitionList(fs, root, scheme, StorageUtils.SequenceLength, DataFileExtension)
         .map(getPartition)
     import scala.collection.JavaConverters._
     partitions.map { p =>
-      val files = StorageUtils.listFiles(fs, root, typeName, p, scheme.isLeafStorage, dataFileExtention).map(_.getName).asJava
+      val files = StorageUtils.listStorageFiles(fs, root, p, scheme.isLeafStorage, DataFileExtension).map(_.getName).asJava
       p.getName -> files
     }.toMap.asJava
   }
 
-  override def getPaths(typeName: String, partition: Partition): java.util.List[URI] = {
-    val scheme = org.locationtech.geomesa.fs.storage.common.PartitionScheme.extractFromSft(featureTypes(typeName))
+  def getPaths(partition: Partition): java.util.List[URI] = {
     val baseDir = if (scheme.isLeafStorage) {
-      StorageUtils.partitionPath(root, typeName, partition.getName).getParent
+      StorageUtils.partitionPath(root, partition.getName).getParent
     } else {
-      StorageUtils.partitionPath(root, typeName, partition.getName)
+      StorageUtils.partitionPath(root, partition.getName)
     }
     import scala.collection.JavaConversions._
-    val files = metadata(typeName).getFiles(partition.getName)
+    val files = metadata.getFiles(partition.getName)
     files.map(new Path(baseDir, _)).map(_.toUri)
   }
 
-  override def getMetadata(typeName: String): Metadata = metadata(typeName)
+  override def updateMetadata(): Unit = ???
 
-  override def updateMetadata(typeName: String): Unit = metadata(typeName).addPartitions(listStorageFiles(typeName))
-
-}
-
-object ParquetFileSystemStorage {
-  val MetadataCache: Cache[(Path, String), Metadata] = CacheBuilder.newBuilder().build[(Path, String), Metadata]()
+  override def getMetadata: Metadata = metadata
 }

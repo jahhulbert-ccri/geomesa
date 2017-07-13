@@ -15,7 +15,7 @@ import java.time.{Instant, ZoneOffset}
 import java.util
 import java.util.Date
 
-import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
+import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigValueFactory}
 import com.vividsolutions.jts.geom.{Geometry, Point}
 import org.geotools.data.DataAccessFactory.Param
 import org.locationtech.geomesa.curve.Z2SFC
@@ -162,6 +162,11 @@ object PartitionScheme {
 
     apply(sft, schemeName, opts)
   }
+
+  def toConfig(scheme: PartitionScheme): Config =
+    ConfigFactory.empty()
+      .withValue("scheme", ConfigValueFactory.fromAnyRef(scheme.name))
+      .withValue("options", ConfigValueFactory.fromMap(scheme.getOptions))
 
   def stringify(schemeName: String, opts: util.Map[String, String]): String = {
     import scala.collection.JavaConverters._

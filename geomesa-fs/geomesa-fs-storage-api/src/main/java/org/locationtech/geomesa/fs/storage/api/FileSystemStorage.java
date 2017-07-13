@@ -17,23 +17,16 @@ import java.util.Iterator;
 import java.util.List;
 
 public interface FileSystemStorage {
-    List<SimpleFeatureType> listFeatureTypes();
-    SimpleFeatureType getFeatureType(String typeName);
-
-    void createNewFeatureType(SimpleFeatureType sft, PartitionScheme scheme);
-    PartitionScheme getPartitionScheme(String typeName);
-
-    URI getFileSystemRoot(String typeName);
 
     Partition getPartition(String name);
-    List<Partition> listPartitions(String typeName);
+    List<Partition> listPartitions();
 
-    FileSystemPartitionIterator getPartitionReader(String typeName, Query q, Partition partition);
+    FileSystemPartitionIterator getPartitionReader(Query q, Partition partition);
 
-    FileSystemWriter getWriter(String typeName, Partition partition);
+    FileSystemWriter getWriter(Partition partition);
 
-    List<URI> getPaths(String typeName, Partition partition);
+    List<URI> getPaths(Partition partition);
 
-    void updateMetadata(String typeName);
-    Metadata getMetadata(String typeName);
+    void updateMetadata();
+    Metadata getMetadata();
 }

@@ -13,9 +13,8 @@ import org.locationtech.geomesa.fs.storage.api.{Partition, PartitionScheme}
 
 object StorageUtils {
 
-  def buildPartitionList(root: Path,
-                         fs: FileSystem,
-                         typeName: String,
+  def buildPartitionList(fs: FileSystem,
+                         root: Path,
                          partitionScheme: PartitionScheme,
                          fileSequenceLength: Int,
                          fileExtension: String): List[String] = {
@@ -56,9 +55,9 @@ object StorageUtils {
     }.toList
 
     if (partitionScheme.isLeafStorage) {
-      recurseLeaf(new Path(root, typeName), "", 0, partitionScheme.maxDepth())
+      recurseLeaf(root, "", 0, partitionScheme.maxDepth())
     } else {
-      recurseBucket(new Path(root, typeName), "", 0, partitionScheme.maxDepth() + 1)
+      recurseBucket(root, "", 0, partitionScheme.maxDepth() + 1)
     }
 
   }
@@ -71,20 +70,19 @@ object StorageUtils {
     }
   }
 
-  def listFiles(fs: FileSystem,
-                root: Path,
-                typeName: String,
-                partition: Partition,
-                isLeafStorage: Boolean,
-                ext: String): Seq[Path] = {
-    val pp = partitionPath(root, typeName, partition.getName)
+  def listStorageFiles(fs: FileSystem,
+                       root: Path,
+                       partition: Partition,
+                       isLeafStorage: Boolean,
+                       ext: String): Seq[Path] = {
+    val pp = new Path(root, partition.getName)
     val dir = if (isLeafStorage) pp.getParent else pp
     val files = listFiles(fs, dir, ext)
     if (isLeafStorage) files.filter(_.getName.startsWith(partition.getName.split('/').last)) else files
   }
 
-  def partitionPath(root: Path, typeName: String, partitionName: String): Path =
-    new Path(new Path(root, typeName), partitionName)
+  def partitionPath(root: Path, partitionName: String): Path =
+    new Path(root, partitionName)
 
 
   val SequenceLength = 5
@@ -93,7 +91,6 @@ object StorageUtils {
 
   def nextFile(fs: FileSystem,
                root: Path,
-               typeName: String,
                partitionName: String,
                isLeafStorage: Boolean,
                extension: String): Path = {
@@ -102,7 +99,7 @@ object StorageUtils {
     val baseFileName = components.last
 
     if (isLeafStorage) {
-      val dir = partitionPath(root, typeName, partitionName).getParent
+      val dir = partitionPath(root, partitionName).getParent
       val existingFiles = listFiles(fs, dir, extension).map(_.getName)
 
       var i = 0
@@ -114,7 +111,7 @@ object StorageUtils {
 
       new Path(dir, name)
     } else {
-      val dir = partitionPath(root, typeName, partitionName)
+      val dir = partitionPath(root, partitionName)
       val existingFiles = listFiles(fs, dir, extension).map(_.getName)
 
       var i = 0

@@ -8,10 +8,18 @@
 
 package org.locationtech.geomesa.fs.storage.api;
 
+import org.opengis.feature.simple.SimpleFeatureType;
+
 import java.io.Serializable;
+import java.net.URI;
 import java.util.Map;
 
 public interface FileSystemStorageFactory {
-    boolean canProcess(Map<String, Serializable> params);
-    FileSystemStorage build(Map<String, Serializable> params);
+    boolean canProcess(Map<String, String> params);
+    FileSystemStorage create(URI path,
+                             SimpleFeatureType sft,
+                             PartitionScheme scheme,
+                             Map<String, String> params);
+    boolean canLoad(URI path);
+    FileSystemStorage load(URI path, Map<String, String> params);
 }

@@ -317,10 +317,10 @@ class SchemeOutputFormat extends ParquetOutputFormat[SimpleFeature] {
 
         def initWriter() = {
           val committer = getOutputCommitter(context).asInstanceOf[FileOutputCommitter]
-          val root = committer.getWorkPath
-          val fs = root.getFileSystem(conf)
+          val typeDir = new Path(committer.getWorkPath, name)
+          val fs = typeDir.getFileSystem(conf)
           // TODO combine this with the same code in ParquetFileSystemStorage
-          val file = StorageUtils.nextFile(fs, root, name, keyPartition, partitionScheme.isLeafStorage, "parquet")
+          val file = StorageUtils.nextFile(fs, typeDir, keyPartition, partitionScheme.isLeafStorage, "parquet")
           logger.info(s"Creating Date scheme record writer at path ${file.toString}")
           curPartition = keyPartition
           writer = getRecordWriter(context, file)
