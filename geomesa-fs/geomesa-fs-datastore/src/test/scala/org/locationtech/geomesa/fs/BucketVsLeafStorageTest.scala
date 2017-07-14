@@ -39,6 +39,7 @@ class BucketVsLeafStorageTest extends Specification {
     def mkSft(name: String) =  SimpleFeatureTypes.createType(name, "attr:String,dtg:Date,*geom:Point:srid=4326")
     def ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> tempDir.toFile.getPath,
+        "fs.mode" -> "native",
         "fs.encoding" -> "parquet",
         "parquet.compression" -> "gzip"
       )).asInstanceOf[FileSystemDataStore]

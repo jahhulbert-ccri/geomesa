@@ -23,12 +23,13 @@ object FsQueryPlanning {
     // Get the partitions from the partition scheme
     // if the result is empty, then scan all partitions
     // TODO: can we short-circuit if the query is outside the bounds
-    val storagePartitions = storage.listPartitions(sft.getTypeName)
+    val typeName = sft.getTypeName
+    val storagePartitions = storage.listPartitions(typeName)
     if (q.getFilter == Filter.INCLUDE) {
       storagePartitions
     }
     else {
-      val partitionScheme = storage.getPartitionScheme(sft.getTypeName)
+      val partitionScheme = storage.getPartitionScheme(typeName)
       val coveringPartitions = partitionScheme.getCoveringPartitions(q.getFilter).map(storage.getPartition)
       if (coveringPartitions.isEmpty) {
         storagePartitions //TODO should this ever happen?

@@ -14,16 +14,15 @@ import java.util
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce.Job
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.parquet.hadoop.ParquetInputFormat
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.geotools.data.{DataStoreFinder, Query, Transaction}
-import org.locationtech.geomesa.fs.{FileSystemDataStore, FsQueryPlanning}
+import org.locationtech.geomesa.fs.{FileSystemDataStore, FsQueryPlanning, NativeFileStorageFactory}
 import org.locationtech.geomesa.index.planning.QueryPlanner
-import org.locationtech.geomesa.parquet.{FilterConverter, ParquetFileSystemStorageFactory, SFParquetInputFormat, SimpleFeatureReadSupport}
+import org.locationtech.geomesa.parquet._
 import org.locationtech.geomesa.spark.{SpatialRDD, SpatialRDDProvider}
 import org.locationtech.geomesa.utils.geotools.FeatureUtils
 import org.opengis.feature.simple.SimpleFeature
@@ -31,7 +30,8 @@ import org.opengis.feature.simple.SimpleFeature
 class ParquetFileSystemRDD extends SpatialRDDProvider with LazyLogging {
 
   override def canProcess(params: util.Map[String, Serializable]): Boolean =
-    new ParquetFileSystemStorageFactory().canProcess(params)
+    new NativeFileStorageFactory().canProcess(params) &&
+    new ParquetStorageFormatFactory().canProcess(params)
 
   override def rdd(conf: Configuration,
                    sc: SparkContext,
@@ -49,7 +49,7 @@ class ParquetFileSystemRDD extends SpatialRDDProvider with LazyLogging {
 
     val storage = ds.storage
     val inputPaths = FsQueryPlanning.getPartitionsForQuery(storage, origSft, query).flatMap { p =>
-      storage.getPaths(sft.getTypeName, p).map(new Path(_))
+      storage.getPaths(sft.getTypeName, p)
     }
 
     // note: file input format requires a job object, but conf gets copied in job object creation,

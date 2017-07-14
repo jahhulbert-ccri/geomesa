@@ -18,16 +18,17 @@ import org.geotools.data.Query
 import org.locationtech.geomesa.convert.{ConfArgs, ConverterConfigResolver, SimpleFeatureConverter, SimpleFeatureConverters}
 import org.locationtech.geomesa.fs.FileSystemDataStoreParams
 import org.locationtech.geomesa.fs.storage.api._
-import org.locationtech.geomesa.fs.storage.common.{StoragePartition, PartitionScheme}
+import org.locationtech.geomesa.fs.storage.common.{PartitionScheme, StoragePartition}
 import org.locationtech.geomesa.utils.geotools.{SftArgResolver, SftArgs}
 import org.opengis.feature.simple.SimpleFeatureType
 
+import scala.collection.JavaConversions._
 
 class ConverterStorageFactory extends FileSystemStorageFactory {
   override def canProcess(params: util.Map[String, Serializable]): Boolean = {
     params.containsKey("fs.path") &&
-    params.containsKey("fs.encoding") &&
-      params.get("fs.encoding").asInstanceOf[String].equals("converter")
+    params.containsKey("fs.mode") &&
+      params.get("fs.mode").asInstanceOf[String].equals("converter")
   }
 
   override def build(params: util.Map[String, Serializable]): FileSystemStorage = {
@@ -66,10 +67,6 @@ class ConverterStorage(root: Path,
                        partitionScheme: PartitionScheme,
                        sft: SimpleFeatureType,
                        converter: SimpleFeatureConverter[_]) extends FileSystemStorage {
-  override def listFeatureTypes(): util.List[SimpleFeatureType] = {
-    import scala.collection.JavaConverters._
-    List(sft).asJava
-  }
 
   override def createNewFeatureType(sft: SimpleFeatureType, partitionScheme: PartitionScheme): Unit =
     throw new UnsupportedOperationException("Cannot create new feature type on existing DB")
@@ -99,22 +96,19 @@ class ConverterStorage(root: Path,
     }.toList
   }
 
-  override def listPartitions(typeName: String): util.List[Partition] = {
-    import scala.collection.JavaConversions._
+  override def listPartitions(typeName: String): util.List[Partition] =
     buildPartitionList(root, "", 0).map(getPartition)
-  }
-
-  override def getFileSystemRoot(typeName: String): URI = root.toUri
 
   override def getPartitionScheme(typeName: String): PartitionScheme = partitionScheme
 
   override def getPartition(name: String): Partition = new StoragePartition(name)
 
-  import scala.collection.JavaConversions._
-  override def getPaths(typeName: String, partition: Partition): java.util.List[URI] =
-    List(new Path(root, partition.getName).toUri)
+  override def getPaths(typeName: String, partition: Partition): java.util.List[Path] =
+    List(new Path(root, partition.getName))
 
-  override def getMetadata(typeName: String): Metadata = ???
+  override def listTypeNames(): util.List[String] = List(sft.getTypeName)
 
   override def updateMetadata(typeName: String): Unit = {}
+
+  override def getMetadata(typeName: String): Metadata = ???
 }

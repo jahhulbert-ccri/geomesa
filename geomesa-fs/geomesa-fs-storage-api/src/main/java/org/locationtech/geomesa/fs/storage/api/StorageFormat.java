@@ -8,10 +8,21 @@
 
 package org.locationtech.geomesa.fs.storage.api;
 
-import java.io.Serializable;
-import java.util.Map;
+import org.apache.hadoop.fs.Path;
+import org.geotools.data.Query;
 
-public interface FileSystemStorageFactory {
-    boolean canProcess(Map<String, Serializable> params);
-    FileSystemStorage build(Map<String, Serializable> params);
+import java.net.URI;
+import java.util.List;
+
+public interface StorageFormat {
+    FileSystemPartitionIterator getPartitionReader(Query q, Partition partition);
+    FileSystemWriter getWriter(Partition partition);
+    List<Path> getPaths(Partition partition);
+    String getFileExtension();
+
+    List<Partition> rawListPartitions();
+    List<Path> rawListPaths(Partition partition);
+
+    Metadata getMetadata();
+
 }

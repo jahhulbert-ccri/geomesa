@@ -1,2 +1,2 @@
 org.locationtech.geomesa.fs.storage.converter.ConverterStorageFactory
-
+org.locationtech.geomesa.fs.NativeFileStorageFactory

@@ -27,14 +27,15 @@ class FileSystemFeatureStore(entry: ContentEntry,
                              fs: FileSystem,
                              storage: FileSystemStorage,
                              readThreads: Int) extends ContentFeatureStore(entry, query) with LazyLogging {
-  private val _sft = storage.getFeatureType(entry.getTypeName)
+  private val _typeName = entry.getTypeName()
+  private val _sft = storage.getFeatureType(_typeName)
+  private val _scheme = storage.getPartitionScheme(_typeName)
 
   override def getWriterInternal(query: Query, flags: Int): FeatureWriter[SimpleFeatureType, SimpleFeature] = {
     require(flags != 0, "no write flags set")
     require((flags | WRITER_ADD) == WRITER_ADD, "Only append supported")
 
     new FeatureWriter[SimpleFeatureType, SimpleFeature] {
-      private val typeName = query.getTypeName
 
       private val writers = scala.collection.mutable.Map.empty[String, FileSystemWriter]
 
@@ -53,8 +54,8 @@ class FileSystemFeatureStore(entry: ContentEntry,
       }
 
       override def write(): Unit = {
-        val partition = storage.getPartitionScheme(typeName).getPartitionName(feature)
-        val writer = writers.getOrElseUpdate(partition, storage.getWriter(typeName, storage.getPartition(partition)))
+        val partition = _scheme.getPartitionName(feature)
+        val writer = writers.getOrElseUpdate(partition, storage.getWriter(_typeName, storage.getPartition(partition)))
         writer.write(feature)
         feature = null
       }
@@ -66,11 +67,11 @@ class FileSystemFeatureStore(entry: ContentEntry,
           writer.flush()
           CloseWithLogging(writer)
         }
-        try {
-          storage.updateMetadata(typeName)
-        } catch {
-          case e: Throwable => logger.error(s"Error updating metadata for type $typeName")
-        }
+//        try {
+//          storage.updateMetadata(typeName)
+//        } catch {
+//          case e: Throwable => logger.error(s"Error updating metadata for type $typeName")
+//        }
       }
     }
   }
@@ -83,7 +84,7 @@ class FileSystemFeatureStore(entry: ContentEntry,
     query.setTypeName(_sft.getTypeName)
     new DelegateSimpleFeatureReader(_sft,
       new DelegateSimpleFeatureIterator(
-        new FileSystemFeatureIterator(fs, storage.getPartitionScheme(_sft.getTypeName), _sft, query, readThreads, storage)))
+        new FileSystemFeatureIterator(fs, _scheme, _sft, query, readThreads, storage)))
   }
 
 

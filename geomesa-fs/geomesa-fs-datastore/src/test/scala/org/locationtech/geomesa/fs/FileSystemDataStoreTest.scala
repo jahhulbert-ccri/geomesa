@@ -38,14 +38,15 @@ class FileSystemDataStoreTest extends Specification {
     "pass a test" >> {
       val gf = JTSFactoryFinder.getGeometryFactory
       val sft = SimpleFeatureTypes.createType("test", "name:String,age:Int,dtg:Date,*geom:Point:srid=4326")
-
+      sft.getUserData.put("fs.encoding", "parquet")
       val sf = new ScalaSimpleFeature("1", sft, Array("test", Integer.valueOf(100),
         ISODateTimeFormat.dateTime().parseDateTime("2017-06-05T04:03:02.0001Z").toDate, gf.createPoint(new Coordinate(10, 10))))
 
       import scala.collection.JavaConversions._
       val ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> dir.getPath,
-        "fs.encoding" -> "parquet",
+        "fs.mode" -> "native",
+//        "fs.encoding" -> "parquet"
         "parquet.compression" -> "gzip"))
       val partitionScheme = new DateTimeScheme(DateTimeScheme.Formats.Daily, ChronoUnit.DAYS, 1, sft, "dtg", false)
       PartitionScheme.addToSft(sft, partitionScheme)
@@ -83,6 +84,8 @@ class FileSystemDataStoreTest extends Specification {
       // Load a new datastore to read metadata and stuff
       val ds2 = DataStoreFinder.getDataStore(Map(
         "fs.path" -> dir.getPath))
+      //TODO
+      success
     }
   }
 

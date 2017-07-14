@@ -11,17 +11,21 @@ package org.locationtech.geomesa.parquet
 
 import java.nio.file.Files
 import java.time.temporal.ChronoUnit
+import java.util
 
 import com.vividsolutions.jts.geom.{Coordinate, Point}
 import org.apache.commons.io.FileUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 import org.geotools.data.Query
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.features.ScalaSimpleFeature
-import org.locationtech.geomesa.fs.storage.common.{CompositeScheme, DateTimeScheme, Z2Scheme}
+import org.locationtech.geomesa.fs.storage.api.{Metadata, PartitionScheme}
+import org.locationtech.geomesa.fs.storage.common._
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
-import org.opengis.feature.simple.SimpleFeature
+import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import org.specs2.specification.AllExpectations
@@ -43,43 +47,43 @@ class ParquetFSTest extends Specification with AllExpectations {
 
 
     "create an fs" >> {
-      val parquetFactory = new ParquetFileSystemStorageFactory
-
-      val fsStorage = parquetFactory.build(Map(
-        "fs.path" -> tempDir.toFile.getPath,
-        "parquet.compression" -> "gzip"
-      ))
-
       val scheme = new CompositeScheme(Seq(
         new DateTimeScheme("yyy/DDD/HH", ChronoUnit.HOURS, 1, sft, "dtg", false),
         new Z2Scheme(10, sft, "geom", false)
       ))
-      fsStorage.createNewFeatureType(sft, scheme)
 
-      fsStorage.listFeatureTypes().size mustEqual 1
-      fsStorage.listFeatureTypes().head.getTypeName mustEqual "test"
+      val p = new Path(tempDir.toUri)
+      val conf = new Configuration()
+      val fs = p.getFileSystem(conf)
+      conf.set(ParquetStorageFormat.ParquetCompressionOpt, "gzip")
+      val meta = FileMetadata.create(fs, new Path(p, "meta"), sft, "parquet", scheme, conf)
+
+      val parquetFactory = new ParquetStorageFormatFactory
+      val fsStorage = parquetFactory.create(fs, p, meta, conf, Map.empty[String, java.io.Serializable])
+
 
       val sf1 = new ScalaSimpleFeature("1", sft, Array("first", Integer.valueOf(100), new java.util.Date, gf.createPoint(new Coordinate(25.236263, 27.436734))))
       val sf2 = new ScalaSimpleFeature("2", sft, Array(null, Integer.valueOf(200), new java.util.Date, gf.createPoint(new Coordinate(67.2363, 55.236))))
       val sf3 = new ScalaSimpleFeature("3", sft, Array("third", Integer.valueOf(300), new java.util.Date, gf.createPoint(new Coordinate(73.0, 73.0))))
 
-      val partitionSchema = fsStorage.getPartitionScheme(sft.getTypeName)
-      val partitions = List(sf1, sf2, sf3).map(partitionSchema.getPartitionName)
+      val fsScheme = fsStorage.getMetadata.getPartitionScheme
+      val partitions = List(sf1, sf2, sf3).map(fsScheme.getPartitionName)
       List[SimpleFeature](sf1, sf2, sf3)
         .zip(partitions)
         .groupBy(_._2)
-        .foreach { case (partition, features) => val writer = fsStorage.getWriter(sft.getTypeName, fsStorage.getPartition(partition))
+        .foreach { case (partition, features) =>
+          val writer = fsStorage.getWriter(new StoragePartition(partition))
           features.map(_._1).foreach(writer.write)
           writer.close()
         }
 
-      val reader3 = fsStorage.getPartitionReader(sft.getTypeName, new Query("test", ff.equals(ff.property("name"), ff.literal("third"))), fsStorage.getPartition(partitions(2)))
+      val reader3 = fsStorage.getPartitionReader(new Query("test", ff.equals(ff.property("name"), ff.literal("third"))), new StoragePartition(partitions(2)))
       val features3 = reader3.toList
       features3.size mustEqual 1
       features3.head.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 73.0
       reader3.close()
 
-      val reader1 = fsStorage.getPartitionReader(sft.getTypeName, new Query("test", ff.equals(ff.property("name"), ff.literal("first"))), fsStorage.getPartition(partitions(0)))
+      val reader1 = fsStorage.getPartitionReader(new Query("test", ff.equals(ff.property("name"), ff.literal("first"))), new StoragePartition(partitions(0)))
       val features1 = reader1.toList
       features1.size mustEqual 1
       features1.head.getDefaultGeometry.asInstanceOf[Point].getX mustEqual 25.236263

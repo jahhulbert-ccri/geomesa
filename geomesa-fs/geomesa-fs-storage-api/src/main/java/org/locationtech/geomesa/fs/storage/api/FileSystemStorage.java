@@ -8,6 +8,7 @@
 
 package org.locationtech.geomesa.fs.storage.api;
 
+import org.apache.hadoop.fs.Path;
 import org.geotools.data.Query;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
@@ -17,16 +18,21 @@ import java.util.Iterator;
 import java.util.List;
 
 public interface FileSystemStorage {
+    List<String> listTypeNames();
+    SimpleFeatureType getFeatureType(String typeName);
+
+    void createNewFeatureType(SimpleFeatureType sft, PartitionScheme scheme);
+    PartitionScheme getPartitionScheme(String typeName);
 
     Partition getPartition(String name);
-    List<Partition> listPartitions();
+    List<Partition> listPartitions(String typeName);
 
-    FileSystemPartitionIterator getPartitionReader(Query q, Partition partition);
+    FileSystemPartitionIterator getPartitionReader(String typeName, Query q, Partition partition);
 
-    FileSystemWriter getWriter(Partition partition);
+    FileSystemWriter getWriter(String typeName, Partition partition);
 
-    List<URI> getPaths(Partition partition);
+    List<Path> getPaths(String typeName, Partition partition);
 
-    void updateMetadata();
-    Metadata getMetadata();
+    Metadata getMetadata(String typeName);
+    void updateMetadata(String typeName);
 }

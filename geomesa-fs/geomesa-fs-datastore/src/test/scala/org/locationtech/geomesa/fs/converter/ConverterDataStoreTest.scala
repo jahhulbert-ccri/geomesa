@@ -28,7 +28,7 @@ class ConverterDataStoreTest extends Specification {
     "work with one datastore" >> {
       val ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore1").getFile,
-        "fs.encoding" -> "converter",
+        "fs.mode" -> "converter",
         "fs.options.sft.name" -> "fs-test",   //need to make one
         "fs.options.converter.name" -> "fs-test",
         "fs.partition-scheme.name" -> "datetime",
@@ -56,7 +56,7 @@ class ConverterDataStoreTest extends Specification {
     "work with something else" >> {
       val ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore2").getFile,
-        "fs.encoding" -> "converter",
+        "fs.mode" -> "converter",
         "fs.options.sft.name" -> "fs-test",   //need to make one
         "fs.options.converter.name" -> "fs-test",
         "fs.partition-scheme.name" -> "datetime",
@@ -118,7 +118,7 @@ class ConverterDataStoreTest extends Specification {
 
       val ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore1").getFile,
-        "fs.encoding" -> "converter",
+        "fs.mode" -> "converter",
         "fs.options.sft.conf" -> conf,
         "fs.options.converter.conf" -> conf,
         "fs.partition-scheme.name" -> "datetime",
