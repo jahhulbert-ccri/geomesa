@@ -88,11 +88,10 @@ class ConverterStorage(root: Path,
   override def getPartitionReader(typeName: String, q: Query, partition: String): FileSystemPartitionIterator =
     new ConverterPartitionReader(root, partition, sft, converter, q.getFilter)
 
-  private def buildPartitionList(path: Path, prefix: String, curDepth: Int): List[String] = {
-    if (curDepth > partitionScheme.maxDepth()) return List.empty[String]
+  private def buildPartitionList(path: Path, prefix: String): List[String] = {
     val status = fs.listStatus(path)
     status.flatMap { f =>
-      if (f.isDirectory) buildPartitionList(f.getPath, s"$prefix${f.getPath.getName}/", curDepth + 1)
+      if (f.isDirectory) buildPartitionList(f.getPath, s"$prefix${f.getPath.getName}/")
       else {
         if (f.getPath.getName.equals("schema.sft")) List()
         else List(s"$prefix${f.getPath.getName}")
@@ -100,7 +99,7 @@ class ConverterStorage(root: Path,
     }.toList
   }
 
-  override def listPartitions(typeName: String): util.List[String] = buildPartitionList(root, "", 0)
+  override def listPartitions(typeName: String): util.List[String] = buildPartitionList(root, "")
 
   override def getPartitionScheme(typeName: String): PartitionScheme = partitionScheme
 

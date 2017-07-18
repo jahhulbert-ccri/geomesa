@@ -203,10 +203,6 @@ class DateTimeScheme(fmtStr: String,
     }
   }
 
-  // TODO This may not be the best way to calculate max depth...
-  // especially if we are going to use other separators
-  override def maxDepth(): Int = fmtStr.count(_ == '/')
-
   override def toString: String = PartitionScheme.stringify(name, getOptions)
 
   override def fromString(sft: SimpleFeatureType, s: String): PartitionScheme =
@@ -282,8 +278,6 @@ class Z2Scheme(bits: Int,
     enumerations.map(_.formatted(s"%0${digits}d"))
   }
 
-  override def maxDepth(): Int = 1
-
   override def toString: String = PartitionScheme.stringify(name(), getOptions)
 
   override def fromString(sft: SimpleFeatureType, s: String): PartitionScheme =
@@ -316,8 +310,6 @@ class CompositeScheme(schemes: Seq[PartitionScheme]) extends PartitionScheme {
 
   override def getCoveringPartitions(f: Filter): util.List[String] =
     schemes.map(_.getCoveringPartitions(f)).reduce((a, b) => for (i <- a; j <-b) yield { s"$i/$j"})
-
-  override def maxDepth(): Int = schemes.map(_.maxDepth()).sum
 
   override def isLeafStorage: Boolean = schemes.head.isLeafStorage
 

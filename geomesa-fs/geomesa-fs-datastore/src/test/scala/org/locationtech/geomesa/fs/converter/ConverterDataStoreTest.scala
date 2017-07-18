@@ -9,6 +9,7 @@
 package org.locationtech.geomesa.fs.converter
 
 import org.geotools.data.{DataStoreFinder, Query, Transaction}
+import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
 import org.opengis.feature.simple.SimpleFeature
 import org.opengis.filter.Filter
@@ -29,7 +30,7 @@ class ConverterDataStoreTest extends Specification {
       val ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore1").getFile,
         "fs.encoding" -> "converter",
-        "fs.options.sft.name" -> "fs-test",   //need to make one
+        "fs.options.sft.name" -> "fs-test",
         "fs.options.converter.name" -> "fs-test",
         "fs.partition-scheme.name" -> "datetime",
         "fs.partition-scheme.opts.datetime-format" -> "yyyy/DDD/HH/mm",
@@ -57,7 +58,7 @@ class ConverterDataStoreTest extends Specification {
       val ds = DataStoreFinder.getDataStore(Map(
         "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore2").getFile,
         "fs.encoding" -> "converter",
-        "fs.options.sft.name" -> "fs-test",   //need to make one
+        "fs.options.sft.name" -> "fs-test",
         "fs.options.converter.name" -> "fs-test",
         "fs.partition-scheme.name" -> "datetime",
         "fs.partition-scheme.opts.datetime-format" -> "yyyy/DDD/HH/mm",
@@ -79,6 +80,62 @@ class ConverterDataStoreTest extends Specification {
         feats += fr.next()
       }
       feats.size mustEqual 4
+    }
+
+    "work with example 3" >> {
+      val ds = DataStoreFinder.getDataStore(Map(
+        "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore3").getFile,
+        "fs.encoding" -> "converter",
+        "fs.options.sft.name" -> "fs-test",   //need to make one
+        "fs.options.converter.name" -> "fs-test",
+        "fs.partition-scheme.name" -> "datetime",
+        "fs.partition-scheme.opts.datetime-format" -> "yyyy/yyyyMMdd'.csv'",
+        "fs.partition-scheme.opts.step-unit" -> "DAYS",
+        "fs.partition-scheme.opts.step" -> "1",
+        "fs.partition-scheme.opts.dtg-attribute" -> "dtg",
+        "fs.partition-scheme.opts.leaf-storage" -> "true"
+      ))
+      ds must not beNull
+
+      val types = ds.getTypeNames
+      types.size mustEqual 1
+      types.head mustEqual "fs-test"
+
+      val q = new Query("fs-test", ECQL.toFilter("dtg >= '2017-01-02' and dtg < '2017-01-04T00:00:00.0001Z'"))
+      val fr = ds.getFeatureReader(q, Transaction.AUTO_COMMIT)
+      val feats = mutable.ListBuffer.empty[SimpleFeature]
+      while (fr.hasNext) {
+        feats += fr.next()
+      }
+      feats.size mustEqual 2
+    }
+
+    "work with example 4" >> {
+      val ds = DataStoreFinder.getDataStore(Map(
+        "fs.path" -> this.getClass.getClassLoader.getResource("example/datastore4").getFile,
+        "fs.encoding" -> "converter",
+        "fs.options.sft.name" -> "fs-test",   //need to make one
+        "fs.options.converter.name" -> "fs-test",
+        "fs.partition-scheme.name" -> "datetime",
+        "fs.partition-scheme.opts.datetime-format" -> "'observations'_yyyy_MM_dd'.csv'",
+        "fs.partition-scheme.opts.step-unit" -> "DAYS",
+        "fs.partition-scheme.opts.step" -> "1",
+        "fs.partition-scheme.opts.dtg-attribute" -> "dtg",
+        "fs.partition-scheme.opts.leaf-storage" -> "true"
+      ))
+      ds must not beNull
+
+      val types = ds.getTypeNames
+      types.size mustEqual 1
+      types.head mustEqual "fs-test"
+
+      val q = new Query("fs-test", ECQL.toFilter("dtg >= '2017-01-02' and dtg < '2017-01-04T00:00:00.0001Z'"))
+      val fr = ds.getFeatureReader(q, Transaction.AUTO_COMMIT)
+      val feats = mutable.ListBuffer.empty[SimpleFeature]
+      while (fr.hasNext) {
+        feats += fr.next()
+      }
+      feats.size mustEqual 2
     }
 
     "load sft as a string" >> {

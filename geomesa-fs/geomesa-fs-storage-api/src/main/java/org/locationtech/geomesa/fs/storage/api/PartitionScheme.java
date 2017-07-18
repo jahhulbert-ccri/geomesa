@@ -29,12 +29,6 @@ public interface PartitionScheme {
      */
     java.util.List<String> getCoveringPartitions(Filter f);
 
-    /**
-     *
-     * @return the max depth this partition scheme goes to
-     */
-    int maxDepth();
-
     boolean isLeafStorage();
 
     String toString();

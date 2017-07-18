@@ -20,14 +20,11 @@ object StorageUtils {
                          fileSequenceLength: Int,
                          fileExtension: String): List[String] = {
 
-    def recurseBucket(path: Path, prefix: String, curDepth: Int, maxDepth: Int): List[String] = {
-      if (curDepth > maxDepth) {
-        return List.empty[String]
-      }
+    def recurseBucket(path: Path, prefix: String): List[String] = {
       val status = fs.listStatus(path)
       status.flatMap { f =>
         if (f.isDirectory) {
-          recurseBucket(f.getPath, s"$prefix${f.getPath.getName}/", curDepth + 1, maxDepth)
+          recurseBucket(f.getPath, s"$prefix${f.getPath.getName}/")
         } else if (f.getPath.getName.endsWith(s".$fileExtension")) {
           val name = f.getPath.getName.dropRight(fileExtension.length + 1)
           List(prefix.dropRight(1))
@@ -37,14 +34,11 @@ object StorageUtils {
       }
     }.toList
 
-    def recurseLeaf(path: Path, prefix: String, curDepth: Int, maxDepth: Int): List[String] = {
-      if (curDepth > maxDepth) {
-        return List.empty[String]
-      }
+    def recurseLeaf(path: Path, prefix: String): List[String] = {
       val status = fs.listStatus(path)
       status.flatMap { f =>
         if (f.isDirectory) {
-          recurseLeaf(f.getPath, s"$prefix${f.getPath.getName}/", curDepth + 1, maxDepth)
+          recurseLeaf(f.getPath, s"$prefix${f.getPath.getName}/")
         } else if (f.getPath.getName.endsWith(s".$fileExtension")) {
           val lenToDrop = fileSequenceLength + 1 + fileExtension.length
           val name = f.getPath.getName.dropRight(lenToDrop)
@@ -56,9 +50,9 @@ object StorageUtils {
     }.toList
 
     if (partitionScheme.isLeafStorage) {
-      recurseLeaf(new Path(root, typeName), "", 0, partitionScheme.maxDepth())
+      recurseLeaf(new Path(root, typeName), "")
     } else {
-      recurseBucket(new Path(root, typeName), "", 0, partitionScheme.maxDepth() + 1)
+      recurseBucket(new Path(root, typeName), "")
     }
 
   }

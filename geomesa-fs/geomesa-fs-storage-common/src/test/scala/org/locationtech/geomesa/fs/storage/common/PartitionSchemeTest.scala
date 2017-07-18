@@ -129,7 +129,7 @@ class PartitionSchemeTest extends Specification with AllExpectations {
 
     "date time test" >> {
       val ps = new CompositeScheme(Seq(
-        new DateTimeScheme("yyy/DDD/HH", ChronoUnit.HOURS, 1, "dtg", true),
+        new DateTimeScheme("yyyy/DDD/HH", ChronoUnit.HOURS, 1, "dtg", true),
         new Z2Scheme(2, "geom", true)
       ))
       val covering = ps.getCoveringPartitions(ECQL.toFilter("dtg >= '2016-08-03T00:00:00.000Z' and dtg < '2016-08-04T00:00:00.000Z'"))
@@ -144,5 +144,18 @@ class PartitionSchemeTest extends Specification with AllExpectations {
       covering.size() mustEqual 24 * 4
     }
 
+    "use underscores for date partitions" >> {
+      val dtScheme = new DateTimeScheme("yyyy_MM_dd_HH", ChronoUnit.HOURS, 1, "dtg", true)
+      val covering = dtScheme.getCoveringPartitions(ECQL.toFilter("dtg >= '2016-08-03T00:00:00.000Z' and dtg < '2016-08-04T00:00:00.000Z'"))
+      covering.size mustEqual 24
+      covering.toSeq must containTheSameElementsAs((0 until 24).map(i => f"2016_08_03_$i%02d"))
+    }
+
+//    "include some file system parts" in {
+//      val dtScheme = new DateTimeScheme("yyyy/yyyyMMdd", ChronoUnit.DAYS, 1, "dtg", true)
+//      val covering = dtScheme.getCoveringPartitions(ECQL.toFilter("dtg >= '2017-01-02' and dtg < '2017-01-04T00:00:00.0001Z'"))
+//      covering.size mustEqual 3
+//      covering.toSeq must containTheSameElementsAs((2 to 4).map(i => f"2017/201701$i%02d"))
+//    }.pendingUntilFixed("Handle edge cases GEOMESA-1939")
   }
 }
