@@ -22,7 +22,7 @@ import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.hadoop.ParquetReader
 import org.geotools.data.Query
 import org.locationtech.geomesa.fs.storage.api._
-import org.locationtech.geomesa.fs.storage.common.{FileMetadata, PartitionScheme, StorageUtils}
+import org.locationtech.geomesa.fs.storage.common.{FileMetadata, FileType, PartitionScheme, StorageUtils}
 import org.locationtech.geomesa.parquet.ParquetFileSystemStorage._
 import org.locationtech.geomesa.utils.io.CloseQuietly
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
@@ -172,7 +172,7 @@ class ParquetFileSystemStorage(root: Path,
         c
       }
       private val leaf = meta.getPartitionScheme.isLeafStorage
-      private val dataPath = StorageUtils.nextFile(fs, root, typeName, partition, leaf, FileExtension)
+      private val dataPath = StorageUtils.nextFile(fs, root, typeName, partition, leaf, FileExtension, FileType.Written)
       private val writer = SimpleFeatureParquetWriter.builder(dataPath, sftConf).build()
       meta.addFile(partition, dataPath.getName)
 
@@ -204,12 +204,53 @@ class ParquetFileSystemStorage(root: Path,
   override def updateMetadata(typeName: String): Unit = {
     val s = System.currentTimeMillis
     val scheme = metadata(typeName).getPartitionScheme
-    val parts = StorageUtils.partitionsAndFiles(root, fs, typeName, scheme, StorageUtils.SequenceLength, FileExtension)
+    val parts = StorageUtils.partitionsAndFiles(root, fs, typeName, scheme, FileExtension)
     metadata(typeName).addPartitions(parts)
     val e = System.currentTimeMillis
     logger.info(s"Metadata Update took in ${e-s}ms.")
   }
 
+  override def compact(typeName: String, partition: String): Unit = {
+    val existingFiles = getPaths(typeName, partition)
+
+    val meta = metadata(typeName)
+    val sft = meta.getSimpleFeatureType
+
+    val sftConf = {
+      val c = new Configuration(conf)
+      SimpleFeatureReadSupport.setSft(sft, c)
+      c
+    }
+    val leaf = meta.getPartitionScheme.isLeafStorage
+    val dataPath = StorageUtils.nextFile(fs, root, typeName, partition, leaf, FileExtension, FileType.Compacted)
+    val writer = SimpleFeatureParquetWriter.builder(dataPath, sftConf).build()
+
+    logger.debug(s"Compacting data files: [${existingFiles.map(_.toString).mkString(", ")}] to into file $dataPath")
+    val support = new SimpleFeatureReadSupport
+    val written: Long = existingFiles.map { f =>
+      logger.debug(s"Reading $f")
+      val reader = ParquetReader.builder[SimpleFeature](support, new Path(f)).withConf(sftConf).build()
+      var sf = reader.read()
+      var count = 0L
+      while (sf != null) {
+        writer.write(sf)
+        count += 1
+        sf = reader.read()
+      }
+      count
+    }.sum
+
+    writer.close()
+    logger.debug(s"Wrote compacted file $dataPath")
+
+    logger.debug(s"Deleting old files [${existingFiles.map(_.toString).mkString(", ")}]")
+    val deleteResult = existingFiles.forall(f => fs.delete(new Path(f), false))
+
+    logger.debug(s"Updating metadata for type $typeName")
+    updateMetadata(typeName)
+
+    logger.debug(s"Compacted $written records into file $dataPath")
+  }
 }
 
 object ParquetFileSystemStorage {

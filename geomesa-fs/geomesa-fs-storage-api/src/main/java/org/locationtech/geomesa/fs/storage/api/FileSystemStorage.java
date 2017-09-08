@@ -29,6 +29,7 @@ public interface FileSystemStorage {
     FileSystemWriter getWriter(String typeName, String partition);
 
     List<URI> getPaths(String typeName, String partition);
+    void compact(String typeName, String partition);
 
     void updateMetadata(String typeName);
     Metadata getMetadata(String typeName);
