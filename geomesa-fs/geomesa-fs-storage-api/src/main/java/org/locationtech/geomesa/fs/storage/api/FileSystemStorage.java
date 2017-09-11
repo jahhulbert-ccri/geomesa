@@ -31,6 +31,14 @@ public interface FileSystemStorage {
     List<URI> getPaths(String typeName, String partition);
     void compact(String typeName, String partition);
 
+    /**
+     * Update the metadata for this filesystem - This should leave the metadata in a
+     * consistent and correct state. Currently this is not a thread-safe operation should
+     * only be invoked by a single thread.
+     *
+     * @param typeName
+     */
     void updateMetadata(String typeName);
+
     Metadata getMetadata(String typeName);
 }

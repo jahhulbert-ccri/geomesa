@@ -8,7 +8,7 @@
 
 package org.locationtech.geomesa.fs.storage.common
 
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.locationtech.geomesa.fs.storage.api.PartitionScheme
 import org.locationtech.geomesa.fs.storage.common.FileType.FileType
 
@@ -81,6 +81,26 @@ object StorageUtils {
     val dir = if (isLeafStorage) pp.getParent else pp
     val files = listFiles(fs, dir, ext)
     if (isLeafStorage) files.filter(_.getName.startsWith(partition.split('/').last)) else files
+  }
+
+  def listFileStatuses(fs: FileSystem, dir: Path, ext: String): Seq[FileStatus] = {
+    if (fs.exists(dir)) {
+      fs.listStatus(dir).filter(_.getPath.getName.endsWith(ext)).toSeq
+    } else {
+      Seq.empty[FileStatus]
+    }
+  }
+
+  def listFileStatus(fs: FileSystem,
+                     root: Path,
+                     typeName: String,
+                     partition: String,
+                     ext: String,
+                     isLeafStorage: Boolean): Seq[FileStatus] = {
+    val pp = partitionPath(root, typeName, partition)
+    val dir = if (isLeafStorage) pp.getParent else pp
+    val files = listFileStatuses(fs, dir, ext)
+    if (isLeafStorage) files.filter(_.getPath.getName.startsWith(partition.split('/').last)) else files
   }
 
   def partitionPath(root: Path, typeName: String, partitionName: String): Path =

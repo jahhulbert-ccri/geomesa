@@ -10,6 +10,7 @@ package org.locationtech.geomesa.fs.tools
 
 import java.io.File
 import java.net.{MalformedURLException, URL}
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.beust.jcommander.{Parameter, ParameterException}
 import org.apache.hadoop.fs.FsUrlStreamHandlerFactory
@@ -24,7 +25,7 @@ trait FsDataStoreCommand extends DataStoreCommand[FileSystemDataStore] {
   override def params: FsParams
 
   override def connection: Map[String, String] = {
-    URL.setURLStreamHandlerFactory(new FsUrlStreamHandlerFactory())
+    FsDataStoreCommand.configureURLFactory()
     val url = if (params.path.matches("""\w+://.*""")) {
       try {
         new URL(params.path)
@@ -41,6 +42,17 @@ trait FsDataStoreCommand extends DataStoreCommand[FileSystemDataStore] {
     Map(FileSystemDataStoreParams.PathParam.getName -> url.toString,
       FileSystemDataStoreParams.EncodingParam.getName -> params.encoding)
   }
+}
+
+object FsDataStoreCommand {
+  val facSet = new AtomicBoolean(false)
+  def configureURLFactory(): Unit =
+    synchronized {
+      if (!facSet.get()) {
+        URL.setURLStreamHandlerFactory(new FsUrlStreamHandlerFactory())
+        facSet.set(true)
+      }
+    }
 }
 
 trait PathParam {

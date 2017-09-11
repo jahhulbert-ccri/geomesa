@@ -93,15 +93,20 @@ class ParquetFileSystemStorage(root: Path,
   override def getFeatureType(typeName: String): SimpleFeatureType =
     metadata(typeName).getSimpleFeatureType
 
+  private def createFileMetadata(sft: SimpleFeatureType) = {
+    val typeName = sft.getTypeName
+    val typePath = new Path(root, typeName)
+    val scheme = PartitionScheme.extractFromSft(sft)
+    val metaPath = new Path(typePath, MetadataFileName)
+    FileMetadata.create(fs, metaPath, sft, ParquetEncoding, scheme, conf)
+  }
+
   override def createNewFeatureType(sft: SimpleFeatureType, scheme: PartitionScheme): Unit = {
     val typeName = sft.getTypeName
 
     if (!typeNames.contains(typeName)) {
       MetadataCache.put((root, typeName), {
-          val typePath = new Path(root, typeName)
-          val scheme = PartitionScheme.extractFromSft(sft)
-          val metaPath = new Path(typePath, MetadataFileName)
-          val metadata = FileMetadata.create(fs, metaPath, sft, ParquetEncoding, scheme, conf)
+          val metadata = createFileMetadata(sft)
           typeNames += typeName
           metadata
       })
@@ -201,10 +206,68 @@ class ParquetFileSystemStorage(root: Path,
 
   override def getMetadata(typeName: String): Metadata = metadata(typeName)
 
+  private def backupMetadata(typeName: String): Unit = {
+    val typePath = new Path(root, typeName)
+    val metaPath = new Path(typePath, MetadataFileName)
+    val backupFile = new Path(typePath, "." + MetadataFileName + ".old." + System.currentTimeMillis())
+    fs.rename(metaPath, backupFile)
+
+    // Because of eventual consistency lets make sure they are there
+    var tryNum = 0
+    var backupComplete = false
+
+    def waitOnBackup = {
+      backupComplete = !(fs.exists(backupFile) && !fs.exists(metaPath))
+      if (!backupComplete) {
+        val secs = 2 ^ tryNum
+        Thread.sleep(1000 * secs)
+      }
+      backupComplete
+    }
+
+    do {
+      tryNum += 1
+    } while (waitOnBackup && tryNum <= 3)
+
+    if (!backupComplete) throw new IllegalArgumentException(s"Unable to properly backup metadata after $tryNum tries")
+  }
+
   override def updateMetadata(typeName: String): Unit = {
     val s = System.currentTimeMillis
     val scheme = metadata(typeName).getPartitionScheme
+    val sft = metadata(typeName).getSimpleFeatureType
     val parts = StorageUtils.partitionsAndFiles(root, fs, typeName, scheme, FileExtension)
+
+    // Save existing metadata
+    val typePath = new Path(root, typeName)
+    val metaPath = new Path(typePath, MetadataFileName)
+    val backupFile = new Path(typePath, "." + MetadataFileName + ".old." + System.currentTimeMillis())
+    fs.rename(metaPath, backupFile)
+
+    // Because of eventual consistency lets make sure they are there
+    var tryNum = 0
+    var backupComplete = false
+
+    def waitOnBackup = {
+      backupComplete = !(fs.exists(backupFile) && !fs.exists(metaPath))
+      if (!backupComplete) {
+        val secs = 2 ^ tryNum
+        Thread.sleep(1000 * secs)
+      }
+      backupComplete
+    }
+
+    do {
+      tryNum += 1
+    } while (waitOnBackup && tryNum <= 3)
+    // TODO better handling of this - move out to a separate backup metadata
+
+
+    // Recreate a new metadata file
+    val newMetadata = createFileMetadata(sft)
+    MetadataCache.invalidate((root, typeName))
+    MetadataCache.put((root, typeName), newMetadata)
+
     metadata(typeName).addPartitions(parts)
     val e = System.currentTimeMillis
     logger.info(s"Metadata Update took in ${e-s}ms.")
