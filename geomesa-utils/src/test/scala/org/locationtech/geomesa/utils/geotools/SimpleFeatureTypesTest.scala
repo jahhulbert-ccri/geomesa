@@ -495,7 +495,7 @@ class SimpleFeatureTypesTest extends Specification {
           |  ]
           |  user-data = {
           |    "geomesa.one" = "true"
-          |    "geomesa.two" = "two"
+          |    geomesa.two = "two"
           |  }
           |}
         """.stripMargin)
