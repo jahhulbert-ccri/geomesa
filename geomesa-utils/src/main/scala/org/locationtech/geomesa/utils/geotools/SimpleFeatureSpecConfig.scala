@@ -140,7 +140,7 @@ object SimpleFeatureSpecConfig {
   }
 
   private def getOptions(conf: Config): Map[String, String] = {
-    val asMap = conf.entrySet().map(e => e.getKey -> e.getValue.unwrapped()).toMap
+    val asMap = conf.root().entrySet().map(e => e.getKey -> e.getValue.unwrapped()).toMap
     asMap.filterKeys(!NonOptions.contains(_)).map {
       // Special case to handle adding keywords
       case (KEYWORDS_KEY, v: jList[String]) => KEYWORDS_KEY -> v.mkString(KEYWORDS_DELIMITER)

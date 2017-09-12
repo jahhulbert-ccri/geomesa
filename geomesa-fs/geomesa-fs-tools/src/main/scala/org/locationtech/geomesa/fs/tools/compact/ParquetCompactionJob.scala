@@ -8,13 +8,13 @@
 
 package org.locationtech.geomesa.fs.tools.compact
 
-import java.io.File
+import java.io.{DataInput, DataOutput, File}
 import java.util
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.io.{BytesWritable, LongWritable, Text}
+import org.apache.hadoop.io.{BytesWritable, LongWritable, Text, Writable}
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
@@ -150,11 +150,32 @@ class ParquetCompactionJob(sft: SimpleFeatureType,
 
 import scala.collection.JavaConversions._
 
-class PartitionInputSplit(val name: String,
-                          files: Seq[String],
-                          length: Long) extends InputSplit {
+class PartitionInputSplit() extends InputSplit with Writable {
+  private var name: String = _
+  private var length: Long = _
+
+  def getName: String = name
   override def getLength: Long = length
   override def getLocations: Array[String] = Array.empty[String]
+
+  override def write(out: DataOutput): Unit = {
+    out.writeUTF(name)
+    out.writeLong(length)
+  }
+
+  override def readFields(in: DataInput): Unit = {
+    this.name = in.readUTF()
+    this.length = in.readLong()
+  }
+}
+
+object PartitionInputSplit{
+  def apply(name: String, length: Long): PartitionInputSplit = {
+    val split = new PartitionInputSplit
+    split.name = name
+    split.length = length
+    split
+  }
 }
 
 class PartitionInputFormat extends InputFormat[Void, SimpleFeature] {
@@ -169,16 +190,12 @@ class PartitionInputFormat extends InputFormat[Void, SimpleFeature] {
     val ds: FileSystemDataStore = DataStoreFinder.getDataStore(dsParams).asInstanceOf[FileSystemDataStore]
     val typeName: String = ParquetJobUtils.getSimpleFeatureType(context.getConfiguration).getTypeName
     val metadata = ds.storage.getMetadata(typeName)
-
-    val partitionAndFiles = metadata.getPartitions.map { p =>
-      (p, metadata.getFiles(p))
-    }
-
     val fs = ds.root.getFileSystem(context.getConfiguration)
-    val splits = partitionAndFiles.map { case (p, files) =>
+
+    val splits = metadata.getPartitions.map { p =>
       val pp = StorageUtils.partitionPath(new Path(rootPath), typeName, p)
-      val pSize = files.map(f => fs.getFileStatus(new Path(pp, f)).getLen).sum
-      new PartitionInputSplit(p, files, pSize)
+      val size = StorageUtils.listFileStatuses(fs, pp, "parquet").map(_.getLen).sum
+      PartitionInputSplit(p, size)
     }
 
     splits
@@ -212,7 +229,7 @@ class PartitionInputFormat extends InputFormat[Void, SimpleFeature] {
         )
         val ds: FileSystemDataStore = DataStoreFinder.getDataStore(dsParams).asInstanceOf[FileSystemDataStore]
 
-        reader = ds.storage.getPartitionReader(sft, new Query(sft.getTypeName, Filter.INCLUDE), partitionInputSplit.name)
+        reader = ds.storage.getPartitionReader(sft, new Query(sft.getTypeName, Filter.INCLUDE), partitionInputSplit.getName)
       }
 
       override def getCurrentKey: Void = null
