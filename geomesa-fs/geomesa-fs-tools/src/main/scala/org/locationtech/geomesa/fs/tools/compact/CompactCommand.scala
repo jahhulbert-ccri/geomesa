@@ -9,14 +9,13 @@
 package org.locationtech.geomesa.fs.tools.compact
 
 import java.io.File
-import java.util
 
 import com.beust.jcommander.{Parameter, ParameterException, Parameters}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.locationtech.geomesa.fs.FileSystemDataStore
 import org.locationtech.geomesa.fs.tools.ingest.TempDirParam
-import org.locationtech.geomesa.fs.tools.{FsDataStoreCommand, FsParams}
+import org.locationtech.geomesa.fs.tools.{FsDataStoreCommand, FsParams, PartitionParam}
 import org.locationtech.geomesa.tools.ingest.AbstractIngest
 import org.locationtech.geomesa.tools.ingest.AbstractIngest.PrintProgress
 import org.locationtech.geomesa.tools.{Command, RequiredTypeNameParam}
@@ -48,7 +47,7 @@ class CompactCommand extends FsDataStoreCommand with LazyLogging {
     Command.user.info(s"Metadata update complete")
 
     val m = ds.storage.getMetadata(params.featureName)
-    val allPartitions = m.getPartitions.map(p => (p, m.getFiles(p))).filter(_._2.size() > 1).map(_._1)
+    val allPartitions = m.getPartitions
     val toCompact: Seq[String] = if (params.partitions.nonEmpty) {
       params.partitions.filterNot(allPartitions.contains).headOption.foreach { p =>
         throw new ParameterException(s"Partition $p cannot be found in metadata")
@@ -84,11 +83,8 @@ class CompactCommand extends FsDataStoreCommand with LazyLogging {
   }
 }
 
-@Parameters(commandDescription = "Compact stuff")
-class CompactParams extends FsParams with RequiredTypeNameParam with TempDirParam {
-  @Parameter(names = Array("--partitions"), description = "Partitions to compact (if not set all partitions will be compacted)", required = false)
-  var partitions: java.util.List[String] = new util.ArrayList[String]()
-
+@Parameters(commandDescription = "Compact partitions")
+class CompactParams extends FsParams with RequiredTypeNameParam with TempDirParam with PartitionParam {
   @Parameter(names = Array("--mode"), description = "Run mode for compaction ('local' or 'distributed' via mapreduce)", required = false)
   var runMode: String = "distributed"
 }

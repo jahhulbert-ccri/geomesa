@@ -96,7 +96,9 @@ class ParquetCompactionJob(sft: SimpleFeatureType,
     ParquetJobUtils.setSimpleFeatureType(job.getConfiguration, sft)
 
     // Save the existing files so we can delete them afterwards
-    val existingFiles = ds.storage.listPartitions(typeName).flatMap(ds.storage.getPaths(typeName, _)).toList
+    // Be sure to filter this based on the input partitions
+    val existingDataFiles = ds.storage.listPartitions(typeName)
+      .intersect(partitions).flatMap(ds.storage.getPaths(typeName, _)).toList
 
     Command.user.info("Submitting job - please wait...")
     job.submit()
@@ -126,8 +128,8 @@ class ParquetCompactionJob(sft: SimpleFeatureType,
 
         Command.user.info("Removing old files")
         val fs = ds.root.getFileSystem(job.getConfiguration)
-        existingFiles.foreach(o => fs.delete(new Path(o), false))
-        Command.user.info(s"Removed ${existingFiles.size} files")
+        existingDataFiles.foreach(o => fs.delete(new Path(o), false))
+        Command.user.info(s"Removed ${existingDataFiles.size} files")
 
         Command.user.info("Updating metadata")
         // We sleep here to allow a chance for S3 to become "consistent" with its storage listings

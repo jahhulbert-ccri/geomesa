@@ -9,13 +9,12 @@
 package org.locationtech.geomesa.fs.tools.status
 
 import com.beust.jcommander.Parameters
-import com.typesafe.scalalogging.LazyLogging
 import org.locationtech.geomesa.fs.tools.{FsDataStoreCommand, FsParams}
 import org.locationtech.geomesa.tools.{Command, RequiredTypeNameParam}
 
 import scala.collection.JavaConversions._
 
-class FsGetPartitionsCommand extends FsDataStoreCommand with LazyLogging {
+class FsGetPartitionsCommand extends FsDataStoreCommand {
   override val params = new FsGetPartitionsParams
 
   override val name: String = "get-partitions"

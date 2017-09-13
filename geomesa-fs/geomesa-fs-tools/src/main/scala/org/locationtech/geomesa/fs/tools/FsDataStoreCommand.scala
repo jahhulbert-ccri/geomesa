@@ -10,6 +10,7 @@ package org.locationtech.geomesa.fs.tools
 
 import java.io.File
 import java.net.{MalformedURLException, URL}
+import java.util
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.beust.jcommander.{Parameter, ParameterException}
@@ -64,6 +65,12 @@ trait PathParam {
 trait EncodingParam {
   @Parameter(names = Array("--encoding", "-e"), description = "Encoding (parquet, csv, etc)", required = true)
   var encoding: String = _
+}
+
+
+trait PartitionParam {
+  @Parameter(names = Array("--partitions"), description = "Partitions (if empty all partitions will be used)", required = false, variableArity = true)
+  var partitions: java.util.List[String] = new util.ArrayList[String]()
 }
 
 trait FsParams extends PathParam with EncodingParam
