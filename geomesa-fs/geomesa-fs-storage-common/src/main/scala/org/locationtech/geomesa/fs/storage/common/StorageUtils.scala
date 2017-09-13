@@ -8,6 +8,8 @@
 
 package org.locationtech.geomesa.fs.storage.common
 
+import java.util.UUID
+
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.locationtech.geomesa.fs.storage.api.PartitionScheme
 import org.locationtech.geomesa.fs.storage.common.FileType.FileType
@@ -106,14 +108,9 @@ object StorageUtils {
   def partitionPath(root: Path, typeName: String, partitionName: String): Path =
     new Path(new Path(root, typeName), partitionName)
 
-  def formatLeafFile(prefix: String,
-                     i: Int,
-                     ext: String,
-                     fileType: FileType): String = f"${prefix}_$fileType$i%04d.$ext"
-
-  def formatBucketFile(i: Int,
-                       ext: String,
-                       fileType: FileType): String = f"$fileType$i%04d.$ext"
+  private def randomName: String = UUID.randomUUID().toString.replaceAllLiterally("-", "")
+  def createLeafName(prefix: String, ext: String, fileType: FileType): String = f"${prefix}_$fileType$randomName.$ext"
+  def createBucketName(ext: String, fileType: FileType): String = f"$fileType$randomName.$ext"
 
   def nextFile(fs: FileSystem,
                root: Path,
@@ -128,27 +125,11 @@ object StorageUtils {
 
     if (isLeafStorage) {
       val dir = partitionPath(root, typeName, partitionName).getParent
-      val existingFiles = listFiles(fs, dir, extension).map(_.getName)
-
-      var i = 0
-      var name = formatLeafFile(baseFileName, i, extension, fileType)
-      while (existingFiles.contains(name)) {
-        i += 1
-        name = formatLeafFile(baseFileName, i, extension, fileType)
-      }
-
+      val name = createLeafName(baseFileName, extension, fileType)
       new Path(dir, name)
     } else {
       val dir = partitionPath(root, typeName, partitionName)
-      val existingFiles = listFiles(fs, dir, extension).map(_.getName)
-
-      var i = 0
-      var name = formatBucketFile(i, extension, fileType)
-      while (existingFiles.contains(name)) {
-        i += 1
-        name = formatBucketFile(i, extension, fileType)
-      }
-
+      val name = createBucketName(extension, fileType)
       new Path(dir, name)
     }
   }

@@ -14,13 +14,13 @@ import java.util
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.io.{BytesWritable, LongWritable, Text, Writable}
+import org.apache.hadoop.io._
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.apache.parquet.hadoop.{ParquetInputFormat, ParquetOutputFormat}
-import org.geotools.data.{DataStoreFinder, DataUtilities, Query}
+import org.geotools.data.{DataStoreFinder, Query}
 import org.geotools.factory.Hints
 import org.locationtech.geomesa.fs.FileSystemDataStore
 import org.locationtech.geomesa.fs.storage.api.FileSystemPartitionIterator
@@ -77,6 +77,7 @@ class ParquetCompactionJob(sft: SimpleFeatureType,
     SchemeOutputFormat.setFileType(job.getConfiguration, FileType.Compacted)
     job.setOutputKeyClass(classOf[Void])
     job.setOutputValueClass(classOf[SimpleFeature])
+    FileOutputFormat.setOutputPath(job, tempPath.getOrElse(dsPath))
 
     // Parquet Options
     val summaryLevel = Option(sft.getUserData.get(ParquetOutputFormat.JOB_SUMMARY_LEVEL).asInstanceOf[String])
@@ -94,7 +95,8 @@ class ParquetCompactionJob(sft: SimpleFeatureType,
     ParquetOutputFormat.setWriteSupportClass(job, classOf[SimpleFeatureWriteSupport])
     ParquetJobUtils.setSimpleFeatureType(job.getConfiguration, sft)
 
-    FileOutputFormat.setOutputPath(job, tempPath.getOrElse(dsPath))
+    // Save the metadata
+    val oldPaths = ds.storage.listPartitions(typeName).flatMap(ds.storage.getPaths(typeName, _)).toList
 
     Command.user.info("Submitting job - please wait...")
     job.submit()
@@ -121,7 +123,12 @@ class ParquetCompactionJob(sft: SimpleFeatureType,
 
     val ret = job.isSuccessful &&
       tempPath.forall(tp => ParquetJobUtils.distCopy(tp, dsPath, sft, job.getConfiguration, statusCallback)) && {
-      Command.user.info("Attempting to update metadata")
+      Command.user.info("Removing old files")
+      val fs = ds.root.getFileSystem(job.getConfiguration)
+      oldPaths.foreach(o => fs.delete(new Path(o), false))
+      Command.user.info(s"Removed ${oldPaths.size} files")
+
+      Command.user.info("Updating metadata")
       // We sleep here to allow a chance for S3 to become "consistent" with its storage listings
       Thread.sleep(5000)
       ds.storage.updateMetadata(typeName)
@@ -267,14 +274,8 @@ class CompactionMapper extends Mapper[LongWritable, SimpleFeature, Void, SimpleF
   override def map(key: LongWritable, sf: SimpleFeature, context: Context): Unit = {
     sf.getUserData.put(Hints.USE_PROVIDED_FID, java.lang.Boolean.TRUE)
     context.getCounter("geomesa", "map").increment(1)
-    try {
-      context.write(null, sf)
-      written.increment(1)
-    } catch {
-      case e: Throwable =>
-        logger.error(s"Failed to write '${DataUtilities.encodeFeature(sf)}'", e)
-        failed.increment(1)
-    }
+    context.write(null, sf)
+    written.increment(1)
   }
 }
 

@@ -74,7 +74,7 @@ class CompactCommand extends FsDataStoreCommand with LazyLogging {
 
           val start = System.currentTimeMillis()
           val (success, failed) = job.run(connection, params.featureName, Seq.empty, libjarsFile, libjarsPaths, statusCallback)
-          Command.user.info(s"Distributed ingestion complete in ${TextTools.getTime(start)}")
+          Command.user.info(s"Distributed compaction complete in ${TextTools.getTime(start)}")
           Command.user.info(AbstractIngest.getStatInfo(success, failed))
         }
     }
