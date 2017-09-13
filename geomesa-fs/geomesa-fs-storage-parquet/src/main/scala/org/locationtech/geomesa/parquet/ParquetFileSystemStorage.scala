@@ -9,6 +9,7 @@
 
 package org.locationtech.geomesa.parquet
 
+import java.io.IOException
 import java.net.URI
 import java.util.Collections
 import java.util.concurrent.Callable
@@ -237,20 +238,22 @@ class ParquetFileSystemStorage(root: Path,
     var tryNum = 0
     var backupComplete = false
 
-    def waitOnBackup = {
-      backupComplete = !(fs.exists(backupFile) && !fs.exists(metaPath))
+    def waitOnBackup: Boolean = {
+      backupComplete = fs.exists(backupFile) && !fs.exists(metaPath)
       if (!backupComplete) {
         val secs = 2 ^ tryNum
         Thread.sleep(1000 * secs)
       }
-      backupComplete
+      !backupComplete
     }
 
     do {
       tryNum += 1
     } while (waitOnBackup && tryNum <= 3)
 
-    if (!backupComplete) throw new IllegalArgumentException(s"Unable to properly backup metadata after $tryNum tries")
+    if (!backupComplete) {
+      throw new IOException(s"Unable to properly backup metadata after $tryNum tries")
+    }
   }
 
   override def updateMetadata(typeName: String): Unit = {
@@ -260,29 +263,7 @@ class ParquetFileSystemStorage(root: Path,
     val parts = StorageUtils.partitionsAndFiles(root, fs, typeName, scheme, FileExtension)
 
     // Save existing metadata
-    val typePath = new Path(root, typeName)
-    val metaPath = new Path(typePath, MetadataFileName)
-    val backupFile = new Path(typePath, "." + MetadataFileName + ".old." + System.currentTimeMillis())
-    fs.rename(metaPath, backupFile)
-
-    // Because of eventual consistency lets make sure they are there
-    var tryNum = 0
-    var backupComplete = false
-
-    def waitOnBackup = {
-      backupComplete = !(fs.exists(backupFile) && !fs.exists(metaPath))
-      if (!backupComplete) {
-        val secs = 2 ^ tryNum
-        Thread.sleep(1000 * secs)
-      }
-      backupComplete
-    }
-
-    do {
-      tryNum += 1
-    } while (waitOnBackup && tryNum <= 3)
-    // TODO better handling of this - move out to a separate backup metadata
-
+    backupMetadata(typeName)
 
     // Recreate a new metadata file
     val newMetadata = createFileMetadata(sft)
@@ -329,6 +310,9 @@ class ParquetFileSystemStorage(root: Path,
 
     logger.debug(s"Deleting old files [${existingFiles.map(_.toString).mkString(", ")}]")
     val deleteResult = existingFiles.forall(f => fs.delete(new Path(f), false))
+    if (!deleteResult) {
+      logger.warn(s"Failed to delete all files: [${existingFiles.map(_.toString).mkString(", ")}]")
+    }
 
     logger.debug(s"Updating metadata for type $typeName")
     updateMetadata(typeName)

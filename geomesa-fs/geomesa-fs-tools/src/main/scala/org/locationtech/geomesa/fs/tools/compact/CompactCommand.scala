@@ -69,11 +69,12 @@ class CompactCommand extends FsDataStoreCommand with LazyLogging {
 
       case "distributed" =>
         withDataStore { ds =>
-          val job = new ParquetCompactionJob(ds.getSchema(params.featureName), ds.root, Option(params.tempDir).map(t => new Path(t)))
+          val tempDir = Option(params.tempDir).map(t => new Path(t))
+          val job = new ParquetCompactionJob(ds.getSchema(params.featureName), ds.root, tempDir)
           val statusCallback = new PrintProgress(System.err, TextTools.buildString(' ', 60), '\u003d', '\u003e', '\u003e')
 
           val start = System.currentTimeMillis()
-          val (success, failed) = job.run(connection, params.featureName, Seq.empty, libjarsFile, libjarsPaths, statusCallback)
+          val (success, failed) = job.run(connection, params.featureName, toCompact, libjarsFile, libjarsPaths, statusCallback)
           Command.user.info(s"Distributed compaction complete in ${TextTools.getTime(start)}")
           Command.user.info(AbstractIngest.getStatInfo(success, failed))
         }
