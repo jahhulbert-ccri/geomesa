@@ -132,6 +132,7 @@ class ParquetFileSystemStorage(root: Path,
   override def getPartitionReader(sft: SimpleFeatureType, q: Query, partition: String): FileSystemPartitionIterator = {
 
     import org.locationtech.geomesa.index.conf.QueryHints._
+
     import scala.collection.JavaConversions._
 
     // parquetSft has all the fields needed for filtering and return, returnSft just has those needed for return
@@ -228,10 +229,28 @@ class ParquetFileSystemStorage(root: Path,
 
   override def getMetadata(typeName: String): Metadata = metadata(typeName)
 
+  private def cleanBackups(typeName: String): Unit = {
+    val typePath = new Path(root, typeName)
+    val fileItr = fs.listFiles(typePath, false)
+    val backupFiles = mutable.ListBuffer.empty[Path]
+    while (fileItr.hasNext) {
+      val nextPath = fileItr.next().getPath
+      if (nextPath.getName.matches(s"\\.$MetadataFileName\\.old\\.\\d+.*")) {
+        backupFiles += nextPath
+      }
+    }
+
+    // Drop the 3 most recent metadata files and delete the old ones
+    backupFiles.sortBy(_.getName).dropRight(3).foreach { p =>
+      logger.debug(s"Removing old metadata backup $p")
+      fs.delete(p, false)
+    }
+  }
+
   private def backupMetadata(typeName: String): Unit = {
     val typePath = new Path(root, typeName)
     val metaPath = new Path(typePath, MetadataFileName)
-    val backupFile = new Path(typePath, "." + MetadataFileName + ".old." + System.currentTimeMillis())
+    val backupFile = new Path(typePath, s".$MetadataFileName.old.${System.currentTimeMillis()}.${System.nanoTime()}")
     fs.rename(metaPath, backupFile)
 
     // Because of eventual consistency lets make sure they are there
@@ -264,6 +283,7 @@ class ParquetFileSystemStorage(root: Path,
 
     // Save existing metadata
     backupMetadata(typeName)
+    cleanBackups(typeName)
 
     // Recreate a new metadata file
     val newMetadata = createFileMetadata(sft)
