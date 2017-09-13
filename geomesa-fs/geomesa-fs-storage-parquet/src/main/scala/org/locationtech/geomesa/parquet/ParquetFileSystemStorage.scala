@@ -240,8 +240,8 @@ class ParquetFileSystemStorage(root: Path,
       }
     }
 
-    // Drop the 3 most recent metadata files and delete the old ones
-    backupFiles.sortBy(_.getName).dropRight(3).foreach { p =>
+    // Keep the 5 most recent metadata files and delete the old ones
+    backupFiles.sortBy(_.getName).dropRight(5).foreach { p =>
       logger.debug(s"Removing old metadata backup $p")
       fs.delete(p, false)
     }
