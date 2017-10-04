@@ -83,7 +83,7 @@ object Example {
 
       while (rows.nextBatch(batch)) {
         (0 until batch.size).foreach { r =>
-          batch.cols.foreach { c => c }
+          batch.cols.foreach { c => c   }
         }
       }
       rows.close()
