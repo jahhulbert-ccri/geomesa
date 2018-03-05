@@ -9,7 +9,6 @@
 package org.locationtech.geomesa.convert.xml
 
 import java.io.{ByteArrayInputStream, File, FileInputStream}
-import java.nio.charset.StandardCharsets
 
 import com.typesafe.config.ConfigFactory
 import com.vividsolutions.jts.geom.Point
@@ -610,6 +609,51 @@ class XMLConverterTest extends Specification {
       features.head.getAttribute("source").asInstanceOf[String] mustEqual "myxml"
     }
   }
+
+  "support a default namespace" >> {
+
+    skipped("requires saxon on the classpath")
+
+    val xml =
+      """<?xml version="1.0" encoding="UTF-8" ?>
+        |<doc xmlns="xyz" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="xyz Foobar.xsd" schemaVer="3.5" >
+        |  <DataSource>
+        |    <name>myxml</name>
+        |  </DataSource>
+        |  <Feature>
+        |    <number>123</number>
+        |    <color>red</color>
+        |    <physical weight="127.5" height="5'11"/>
+        |  </Feature>
+        |</doc>
+      """.stripMargin
+
+    val parserConf = ConfigFactory.parseString(
+      """
+        | {
+        |   type         = "xml"
+        |   id-field     = "uuid()"
+        |   feature-path = "Feature" // can be any xpath - relative to the root, or absolute
+        |   fields = [
+        |     // paths can be any xpath - relative to the feature-path, or absolute
+        |     { name = "number", path = "number",                  transform = "$0::integer" }
+        |     { name = "color",  path = "color",                   transform = "trim($0)" }
+        |     { name = "weight", path = "floor(physical/@weight)", transform = "$0::double" }
+        |     { name = "source", path = "/doc/DataSource/name/text()" }
+        |   ]
+        | }
+        |
+        """.stripMargin)
+
+    val converter = SimpleFeatureConverters.build[String](sft, parserConf)
+    val features = converter.processInput(Iterator(xml)).toList
+    features must haveLength(1)
+    features.head.getAttribute("number").asInstanceOf[Integer] mustEqual 123
+    features.head.getAttribute("color").asInstanceOf[String] mustEqual "red"
+    features.head.getAttribute("weight").asInstanceOf[Double] mustEqual 127
+    features.head.getAttribute("source").asInstanceOf[String] mustEqual "myxml"
+  }
+
 }
 
 
