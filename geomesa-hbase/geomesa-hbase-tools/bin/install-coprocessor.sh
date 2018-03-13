@@ -22,9 +22,11 @@ else
     echo "Using GeoMesa JAR: $GEOMESA_JAR"
 fi
 
-hadoop fs -put ${GEOMESA_JAR}  ${HDFS_LIB_DIR}/
 REMOTE_JAR="${HDFS_LIB_DIR}/$(basename ${GEOMESA_JAR})"
+hadoop fs -put -f ${GEOMESA_JAR} ${REMOTE_JAR}
 
 (hadoop fs -test -f "${REMOTE_JAR}" && echo "Successfully installed coprocessors at ${REMOTE_JAR}") || (echo "Error installing coprocessors" && exit 1)
 
+CONF_FILE="${GEOMESA_HBASE_HOME}/conf/geomesa-env.sh"
+(echo "setvar CUSTOM_JAVA_OPTS \"-Dgeomesa.hbase.coprocessor.path=${REMOTE_JAR}\"" >> "${CONF_FILE}" ) && echo "Updated CUSTOM_JAVA_OPTS in ${CONF_FILE}"
 
