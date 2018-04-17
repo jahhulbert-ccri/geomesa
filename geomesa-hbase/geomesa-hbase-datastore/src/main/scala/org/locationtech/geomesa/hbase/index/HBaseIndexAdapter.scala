@@ -154,7 +154,7 @@ trait HBaseIndexAdapter extends HBaseFeatureIndexType
       val sf = deserializer.deserialize(value, valueOffset, valueLength)
       sf.getIdentifier.asInstanceOf[FeatureIdImpl].setID(getId(row, rowOffset, rowLength, sf))
       sf
-    }
+    }.toList.iterator
   }
 }
 
