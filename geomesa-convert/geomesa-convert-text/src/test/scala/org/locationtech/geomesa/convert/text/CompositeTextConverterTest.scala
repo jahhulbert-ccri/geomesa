@@ -13,7 +13,9 @@ import java.nio.charset.StandardCharsets
 
 import com.typesafe.config.ConfigFactory
 import org.junit.runner.RunWith
+import org.locationtech.geomesa.convert.SimpleFeatureConverters
 import org.locationtech.geomesa.convert2.SimpleFeatureConverter
+import org.locationtech.geomesa.convert2.composite.CompositeConverter
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -86,6 +88,14 @@ class CompositeTextConverterTest extends Specification {
       res(0).getAttribute("lat").asInstanceOf[Double] must be equalTo 0.0
       res(1).getAttribute("lat").asInstanceOf[Double] must be equalTo 0.0
     }
+  }
+
+  "be built using old api" >> {
+    val sft = SimpleFeatureTypes.createType(ConfigFactory.load("sft_testsft.conf"))
+    val converter = SimpleFeatureConverters.build[String](sft, conf)
+    converter must not(beNull)
+    converter must beAnInstanceOf[CompositeConverter]
+
   }
 
 }
