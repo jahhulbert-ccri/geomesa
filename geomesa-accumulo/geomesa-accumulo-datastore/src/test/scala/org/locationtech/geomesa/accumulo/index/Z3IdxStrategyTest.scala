@@ -13,6 +13,7 @@ import java.util.Date
 import com.google.common.primitives.{Longs, Shorts}
 import org.apache.accumulo.core.security.Authorizations
 import org.geotools.data.{Query, Transaction}
+import org.geotools.factory.CommonFactoryFinder
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.accumulo.TestWithDataStore
@@ -21,6 +22,7 @@ import org.locationtech.geomesa.curve.Z3SFC
 import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.locationtech.geomesa.index.conf.QueryHints._
 import org.locationtech.geomesa.index.conf.QueryProperties
+import org.locationtech.geomesa.index.planning.QueryPlanner
 import org.locationtech.geomesa.utils.bin.BinaryOutputEncoder
 import org.locationtech.geomesa.utils.bin.BinaryOutputEncoder.BIN_ATTRIBUTE_INDEX
 import org.locationtech.geomesa.utils.collection.SelfClosingIterator
@@ -413,5 +415,21 @@ class Z3IdxStrategyTest extends Specification with TestWithDataStore {
       val bins = results.flatMap(_.asInstanceOf[Array[Byte]].grouped(16).map(BinaryOutputEncoder.decode))
       bins.length must beLessThan(10)
     }
+
+    "pick out an interval with filter factory" >> {
+      val filterFactory = CommonFactoryFinder.getFilterFactory2
+      val filt = filterFactory.and(
+        filterFactory.between(
+          filterFactory.property("dtg"),
+          filterFactory.literal(java.time.Instant.parse("2010-05-07T00:00:00Z")),
+          filterFactory.literal(java.time.Instant.parse("'2010-05-07T12:00:00Z'"))
+        ),
+        ECQL.toFilter("bbox(geom, 38, 59, 51, 61)")
+      )
+      val plans = ds.queryPlanner.planQuery(sft, new Query(sftName, filt))
+      success
+    }
+
+
   }
 }
